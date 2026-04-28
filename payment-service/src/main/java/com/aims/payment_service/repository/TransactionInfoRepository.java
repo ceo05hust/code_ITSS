@@ -7,8 +7,8 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface TransactionInfoRepository extends JpaRepository<TransactionInfo, String> {
+public interface TransactionInfoRepository extends JpaRepository<TransactionInfo, Integer> {
 
     /** Tìm transaction theo orderId (invoiceId) */
-    Optional<TransactionInfo> findByOrderId(String orderId);
+    Optional<TransactionInfo> findByOrderId(Integer orderId);
 }

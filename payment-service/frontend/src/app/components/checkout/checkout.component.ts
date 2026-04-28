@@ -14,7 +14,7 @@ import { Router } from '@angular/router';
       <div class="order-summary">
         <div class="summary-row">
           <span>Mã đơn hàng</span>
-          <strong>INV-001</strong>
+          <strong>1</strong>
         </div>
         <div class="summary-row">
           <span>Giá sản phẩm (trước VAT)</span>

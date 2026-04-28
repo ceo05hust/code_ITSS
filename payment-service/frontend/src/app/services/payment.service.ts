@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface GenerateQrPayload {
-  invoiceId: string;
+  invoiceId: number;
   shippingFee: number;
   totalProductPriceExVAT: number;
   totalProductPriceIncVAT: number;
@@ -11,7 +11,7 @@ export interface GenerateQrPayload {
 }
 
 export interface ConfirmPayload {
-  invoiceId: string;
+  invoiceId: number;
 }
 
 @Injectable({

@@ -7,7 +7,7 @@ import lombok.Data;
  */
 @Data
 public class InvoiceRequest {
-    private String invoiceId;
+    private Integer invoiceId;
     private double shippingFee;
     private double totalProductPriceExVAT;
     private double totalProductPriceIncVAT;

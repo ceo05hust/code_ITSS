@@ -12,8 +12,9 @@ import lombok.*;
 public class Invoice {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "invoice_id")
-    private String invoiceId;
+    private Integer invoiceId;
 
     @Column(name = "shipping_fee")
     private double shippingFee;

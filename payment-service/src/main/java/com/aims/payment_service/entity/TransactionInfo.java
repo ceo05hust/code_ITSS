@@ -14,8 +14,9 @@ import java.time.LocalDateTime;
 public class TransactionInfo {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "transaction_id")
-    private String transactionId;
+    private Integer transactionId;
 
     @Column(name = "transaction_content", length = 500)
     private String transactionContent;
@@ -29,7 +30,7 @@ public class TransactionInfo {
 
     /** invoiceId của Invoice liên kết */
     @Column(name = "order_id")
-    private String orderId;
+    private Integer orderId;
 
     @Column(name = "amount")
     private double amount;
@@ -39,15 +40,15 @@ public class TransactionInfo {
     private String status;
 
     public static TransactionInfo createTransactionInfo(
-            String transactionId,
+            String vietQrTransactionId,
             String transactionContent,
-            String invoiceId,
+            Integer invoiceId,
             double amount,
             PaymentMethod paymentMethod
     ) {
+        String fullContent = "VietQR Ref: " + vietQrTransactionId + " | " + transactionContent;
         return TransactionInfo.builder()
-                .transactionId(transactionId)
-                .transactionContent(transactionContent)
+                .transactionContent(fullContent)
                 .transactionDateTime(LocalDateTime.now())
                 .paymentMethod(paymentMethod)
                 .orderId(invoiceId)
@@ -56,6 +57,6 @@ public class TransactionInfo {
                 .build();
     }
 
-    public String getTransactionId() { return transactionId; }
+    public Integer getTransactionId() { return transactionId; }
     public String getStatus()        { return status; }
 }

@@ -113,11 +113,18 @@ public class VietQRInboundController {
         }
 
         // 3. Tìm invoice (alt: Invoice not found)
-        String invoiceId = payload.getTransactionRefId();
-        Invoice invoice  = invoiceRepository.findById(invoiceId).orElse(null);
+        String invoiceIdStr = payload.getTransactionRefId();
+        Integer invoiceId = null;
+        try {
+            invoiceId = Integer.valueOf(invoiceIdStr);
+        } catch (NumberFormatException e) {
+            log.warn("Cannot parse transactionRefId to Integer: {}", invoiceIdStr);
+        }
+        
+        Invoice invoice  = invoiceId != null ? invoiceRepository.findById(invoiceId).orElse(null) : null;
 
         if (invoice == null) {
-            log.warn("Invoice not found for transactionRefId: {}", invoiceId);
+            log.warn("Invoice not found for transactionRefId: {}", invoiceIdStr);
             // Vẫn tạo TransactionInfo mà không link invoice
         }
 
@@ -129,19 +136,19 @@ public class VietQRInboundController {
         TransactionInfo transactionInfo = TransactionInfo.createTransactionInfo(
                 txnId,
                 payload.getContent() != null ? payload.getContent()
-                        : "Thanh toan AIMS #" + invoiceId,
+                        : "Thanh toan AIMS #" + invoiceIdStr,
                 invoiceId,
                 payload.getAmount(),
                 PaymentMethod.VietQR
         );
         transactionRepository.save(transactionInfo);
-        log.info("TransactionInfo saved: id={}", txnId);
+        log.info("TransactionInfo saved: DB_ID will be generated, VietQR_TxnId={}", txnId);
 
         // 5. Cập nhật Invoice
         if (invoice != null) {
             invoice.markAsPaid(transactionInfo);
             invoiceRepository.save(invoice);
-            log.info("Invoice {} marked as PAID", invoiceId);
+            log.info("Invoice {} marked as PAID", invoiceIdStr);
         }
 
         return ResponseEntity.ok(Map.of(

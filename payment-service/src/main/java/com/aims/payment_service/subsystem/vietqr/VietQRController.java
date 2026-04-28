@@ -96,7 +96,7 @@ public class VietQRController implements IPaymentQRCode {
                 .amount(invoice.getTotalAmount())
                 .content("AIMS " + invoice.getInvoiceId())
                 .qrType(0)
-                .orderId(invoice.getInvoiceId())
+                .orderId(String.valueOf(invoice.getInvoiceId()))
                 .transType("C")
                 .build();
 
@@ -125,7 +125,7 @@ public class VietQRController implements IPaymentQRCode {
         // Body gửi đến VietQR test callback trigger
         String requestBody = String.format(
                 "{\"bankAccount\":\"%s\",\"content\":\"AIMS %s\",\"amount\":%.0f,\"bankCode\":\"%s\",\"transType\":\"C\"}",
-                bankAccount, invoice.getInvoiceId(), invoice.getTotalAmount(), bankCode
+                bankAccount, String.valueOf(invoice.getInvoiceId()), invoice.getTotalAmount(), bankCode
         );
 
         String rawResponse = boundary.checkPaymentStatus(requestBody, token);

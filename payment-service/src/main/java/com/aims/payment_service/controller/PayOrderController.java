@@ -39,7 +39,7 @@ public class PayOrderController {
     // =========================================================
 
     @PostMapping("/generate-qr")
-    public ResponseEntity<ApiResponse<QRCode>> generateQRCode(
+    public ResponseEntity<ApiResponse<Object>> generateQRCode(
             @Valid @RequestBody InvoiceRequest request
     ) {
         log.info("generateQRCode for invoice: {}", request.getInvoiceId());
@@ -49,7 +49,12 @@ public class PayOrderController {
             QRCode qrCode = paymentQRCode.generateQRCode(invoice);
             log.info("QR generated successfully for invoice: {}", invoice.getInvoiceId());
 
-            return ResponseEntity.ok(ApiResponse.ok("QR code generated", qrCode));
+            Map<String, Object> responseData = Map.of(
+                    "qrCode", qrCode,
+                    "invoiceId", invoice.getInvoiceId()
+            );
+
+            return ResponseEntity.ok(ApiResponse.ok("QR code generated", responseData));
 
         } catch (InvalidTokenException e) {
             log.error("Auth failure while generating QR: {}", e.getMessage());
@@ -75,9 +80,9 @@ public class PayOrderController {
 
     @PostMapping("/confirm")
     public ResponseEntity<ApiResponse<Object>> confirmPayment(
-            @RequestBody Map<String, String> body
+            @RequestBody Map<String, Object> body
     ) {
-        String invoiceId = body.get("invoiceId");
+        Integer invoiceId = Integer.valueOf(body.get("invoiceId").toString());
         log.info("confirmPayment triggered for invoice: {}", invoiceId);
 
         try {
@@ -133,10 +138,10 @@ public class PayOrderController {
 
     @PostMapping("/switch-method")
     public ResponseEntity<ApiResponse<Object>> switchMethod(
-            @RequestBody Map<String, String> body
+            @RequestBody Map<String, Object> body
     ) {
-        String method    = body.get("method");
-        String invoiceId = body.get("invoiceId");
+        String method    = body.get("method").toString();
+        Integer invoiceId = Integer.valueOf(body.get("invoiceId").toString());
         log.info("switchMethod: invoice={}, method={}", invoiceId, method);
 
         if ("PayPal".equalsIgnoreCase(method)) {
@@ -159,7 +164,7 @@ public class PayOrderController {
 
     @GetMapping("/transaction/{invoiceId}")
     public ResponseEntity<ApiResponse<TransactionInfo>> returnTransactionInfo(
-            @PathVariable String invoiceId
+            @PathVariable Integer invoiceId
     ) {
         log.info("getTransactionInfo for invoice: {}", invoiceId);
 
@@ -233,7 +238,6 @@ public class PayOrderController {
         return invoiceRepository.findById(request.getInvoiceId())
                 .orElseGet(() -> {
                     Invoice inv = Invoice.builder()
-                            .invoiceId(request.getInvoiceId())
                             .shippingFee(request.getShippingFee())
                             .totalProductPriceExVAT(request.getTotalProductPriceExVAT())
                             .totalProductPriceIncVAT(request.getTotalProductPriceIncVAT())

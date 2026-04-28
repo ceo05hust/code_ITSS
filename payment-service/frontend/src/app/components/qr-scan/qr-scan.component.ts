@@ -115,6 +115,7 @@ export class QrScanComponent implements OnInit {
   qrContent: string = '';
   isConfirming = false;
   errorMessage = '';
+  currentInvoiceId: number = 0;
 
   constructor(
     private router: Router,
@@ -127,16 +128,18 @@ export class QrScanComponent implements OnInit {
 
   generateQR() {
     this.paymentService.generateQr({
-      invoiceId: 'INV-001',
+      invoiceId: 0, // Dữ liệu giả, Backend sẽ tự tạo và trả về ID thật
       shippingFee: 30000,
       totalProductPriceExVAT: 200000,
       totalProductPriceIncVAT: 220000,
       totalAmount: 250000
     }).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         if (res.success && res.data) {
-          this.qrCodeData = res.data.qrCode;
-          this.qrContent = res.data.content || 'AIMS INV-001';
+          // Backend giờ trả về { qrCode: {...}, invoiceId: 1 }
+          this.qrCodeData = res.data.qrCode.qrCode;
+          this.qrContent = res.data.qrCode.content || ('AIMS ' + res.data.invoiceId);
+          this.currentInvoiceId = res.data.invoiceId;
         }
       },
       error: (err) => {
@@ -150,7 +153,7 @@ export class QrScanComponent implements OnInit {
     this.isConfirming = true;
     this.errorMessage = '';
     
-    this.paymentService.confirmPayment({ invoiceId: 'INV-001' }).subscribe({
+    this.paymentService.confirmPayment({ invoiceId: this.currentInvoiceId }).subscribe({
       next: (res) => {
         this.isConfirming = false;
         if (res.success || res.message === 'Invoice already paid') {

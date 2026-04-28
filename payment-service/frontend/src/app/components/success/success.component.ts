@@ -16,7 +16,7 @@ import { Router } from '@angular/router';
       </div>
       
       <h1>Thanh toán thành công!</h1>
-      <p class="subtitle">Đơn hàng INV-001 của bạn đã được thanh toán.</p>
+      <p class="subtitle">Đơn hàng 1 của bạn đã được thanh toán.</p>
       
       <div class="receipt">
         <div class="receipt-row">
