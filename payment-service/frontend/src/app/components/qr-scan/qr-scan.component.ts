@@ -1,19 +1,20 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { QRCodeModule } from 'angularx-qrcode';
 import { PaymentService } from '../../services/payment.service';
 
 @Component({
   selector: 'app-qr-scan',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, QRCodeModule],
   template: `
     <div class="glass-container animate-fade-in text-center">
       <h1>Thanh toán đơn hàng</h1>
       <p class="subtitle">Quét mã QR qua ứng dụng ngân hàng của bạn</p>
       
-      <div class="qr-box" *ngIf="qrLink; else loading">
-        <img [src]="qrLink" alt="VietQR Code" class="qr-image" />
+      <div class="qr-box" *ngIf="qrCodeData; else loading">
+        <qrcode [qrdata]="qrCodeData" [width]="250" [errorCorrectionLevel]="'M'"></qrcode>
         <div class="qr-details">
           <p>Số tiền: <strong class="highlight">250,000 đ</strong></p>
           <p>Nội dung: <strong>{{ qrContent }}</strong></p>
@@ -28,7 +29,7 @@ import { PaymentService } from '../../services/payment.service';
       </ng-template>
 
       <div class="actions">
-        <button class="btn-primary" [disabled]="!qrLink || isConfirming" (click)="confirmPayment()">
+        <button class="btn-primary" [disabled]="!qrCodeData || isConfirming" (click)="confirmPayment()">
           {{ isConfirming ? 'Đang kiểm tra...' : 'Tôi đã chuyển tiền xong' }}
         </button>
         <button class="btn-secondary" (click)="goBack()">Hủy thanh toán</button>
@@ -110,7 +111,7 @@ import { PaymentService } from '../../services/payment.service';
   `]
 })
 export class QrScanComponent implements OnInit {
-  qrLink: string = '';
+  qrCodeData: string = '';
   qrContent: string = '';
   isConfirming = false;
   errorMessage = '';
@@ -134,7 +135,7 @@ export class QrScanComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         if (res.success && res.data) {
-          this.qrLink = res.data.qrLink;
+          this.qrCodeData = res.data.qrCode;
           this.qrContent = res.data.content || 'AIMS INV-001';
         }
       },
