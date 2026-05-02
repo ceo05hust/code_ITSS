@@ -85,9 +85,11 @@ public class VietQRInboundController {
      * VietQR gọi endpoint này khi có kết quả thanh toán (thật hoặc test).
      * Header: Authorization: Bearer dummy_token_123
      *
-     * URL: POST /vqr/bank/api/test/transaction-callback
+     * URLs hỗ trợ:
+     *   POST /vqr/bank/api/test/transaction-callback
+     *   POST /vqr/bank/api/transaction-sync
      */
-    @PostMapping("/vqr/bank/api/test/transaction-callback")
+    @PostMapping({"/vqr/bank/api/test/transaction-callback", "/vqr/bank/api/transaction-sync"})
     public ResponseEntity<?> receiveCallback(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody CallbackPayload payload
@@ -112,13 +114,14 @@ public class VietQRInboundController {
             );
         }
 
-        // 3. Tìm invoice (alt: Invoice not found)
-        String invoiceIdStr = payload.getTransactionRefId();
+        // 3. Tìm invoice - dùng transactionRefId hoặc trích xuất từ content "VQRxxxxx AIMS 10"
+        String invoiceIdStr = payload.extractInvoiceIdFromContent();
+        log.info("Resolved invoiceIdStr from callback: {}", invoiceIdStr);
         Integer invoiceId = null;
         try {
-            invoiceId = Integer.valueOf(invoiceIdStr);
+            if (invoiceIdStr != null) invoiceId = Integer.valueOf(invoiceIdStr);
         } catch (NumberFormatException e) {
-            log.warn("Cannot parse transactionRefId to Integer: {}", invoiceIdStr);
+            log.warn("Cannot parse invoiceId to Integer: {}", invoiceIdStr);
         }
         
         Invoice invoice  = invoiceId != null ? invoiceRepository.findById(invoiceId).orElse(null) : null;
@@ -168,8 +171,8 @@ public class VietQRInboundController {
             String decoded    = new String(Base64.getDecoder().decode(authHeader.substring(6)));
             String[] parts    = decoded.split(":", 2);
             return parts.length == 2
-                    && callbackUsername.equals(parts[0])
-                    && callbackPassword.equals(parts[1]);
+                    && callbackUsername.equals(parts[0].trim())
+                    && callbackPassword.equals(parts[1].trim());
         } catch (Exception e) {
             return false;
         }

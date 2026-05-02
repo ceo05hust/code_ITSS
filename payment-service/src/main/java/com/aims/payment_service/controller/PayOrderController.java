@@ -7,6 +7,8 @@ import com.aims.payment_service.exception.*;
 import com.aims.payment_service.repository.InvoiceRepository;
 import com.aims.payment_service.repository.TransactionInfoRepository;
 import com.aims.payment_service.subsystem.vietqr.IPaymentQRCode;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,9 +32,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PayOrderController {
 
-    private final IPaymentQRCode            paymentQRCode;        // VietQRController
+    private final IPaymentQRCode            paymentQRCode;
     private final InvoiceRepository          invoiceRepository;
     private final TransactionInfoRepository  transactionRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     // =========================================================
     // 1. Generate QR Code
@@ -93,25 +98,41 @@ public class PayOrderController {
             // Kiểm tra đã thanh toán chưa (alt: already paid)
             if (invoice.getTransactionInfo() != null) {
                 return ResponseEntity.ok(ApiResponse.ok(
-                        "Invoice already paid",
-                        Map.of("transactionId", invoice.getTransactionInfo().getTransactionId())
+                        "Payment successful",
+                        Map.of("transactionId", invoice.getTransactionInfo().getTransactionId(),
+                               "invoiceId", invoiceId, "status", "SUCCESS")
                 ));
             }
 
-            // Trigger VietQR test callback
-            PaymentStatus paymentStatus = checkPaymentStatus(invoice);
+            // Trigger VietQR test callback (bất đồng bộ — VietQR sẽ gọi ngược về callback endpoint)
+            log.info("Triggering VietQR test callback for invoice: {}", invoiceId);
+            checkPaymentStatus(invoice); // Bỏ qua kết quả trả về từ trigger API
 
-            if (!paymentStatus.isSuccess()) {
-                handlePaymentFailure(new PaymentFailedException("Payment simulation returned: " + paymentStatus.getMessage()));
-                return ResponseEntity.status(400)
-                        .body(ApiResponse.error("Payment failed: " + paymentStatus.getMessage()));
+            // Chờ 700ms để VietQR kịp gọi callback về và webhook xử lý xong
+            Thread.sleep(700);
+
+            // Xóa L1 cache để Hibernate buộc đọc lại từ DB (không dùng bản cache cũ)
+            entityManager.clear();
+            Invoice refreshed = invoiceRepository.findById(invoiceId).orElse(invoice);
+            if (refreshed.getTransactionInfo() != null) {
+                log.info("Invoice {} paid successfully via VietQR callback", invoiceId);
+                return ResponseEntity.ok(ApiResponse.ok(
+                        "Payment successful",
+                        Map.of("transactionId", refreshed.getTransactionInfo().getTransactionId(),
+                               "invoiceId", invoiceId, "status", "SUCCESS")
+                ));
             }
 
-            // Lấy kết quả transaction (được lưu bởi VietQRInboundController khi callback đến)
+            // Webhook chưa đến kịp (hiếm gặp) — thông báo pending
+            log.warn("Invoice {} still pending after waiting for callback", invoiceId);
             return ResponseEntity.ok(ApiResponse.ok(
-                    "Test callback triggered. Waiting for VietQR callback...",
+                    "Payment pending - please wait",
                     Map.of("invoiceId", invoiceId, "status", "PENDING")
             ));
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(500).body(ApiResponse.error("Interrupted"));
 
         } catch (PaymentTimeoutException e) {
             log.warn("Payment timeout for invoice: {}", invoiceId);
@@ -131,6 +152,7 @@ public class PayOrderController {
                     .body(ApiResponse.error("Error: " + e.getMessage()));
         }
     }
+
 
     // =========================================================
     // 3. Switch Payment Method

@@ -14,6 +14,8 @@ public class QRCode {
     private String bankCode;
     private String bankName;
     private String bankAccount;
+    /** Mã giao dịch VietQR tự sinh (dạng VQRxxxxx) - cần dùng khi trigger test callback */
+    private String transactionId;
 
     /**
      * Parse JSON response string từ VietQR generate QR API.
@@ -32,6 +34,8 @@ public class QRCode {
             this.bankCode  = getTextSafe(data, "bankCode");
             this.bankName  = getTextSafe(data, "bankName");
             this.bankAccount = getTextSafe(data, "bankAccount");
+            // VietQR trả về transactionId (VQRxxxxx) - quan trọng để trigger test callback
+            this.transactionId = getTextSafe(data, "transactionId");
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse QR code response: " + e.getMessage(), e);

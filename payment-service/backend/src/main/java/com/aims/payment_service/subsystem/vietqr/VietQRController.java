@@ -122,10 +122,21 @@ public class VietQRController implements IPaymentQRCode {
     public String checkPaymentStatus(Invoice invoice) {
         String token = getValidAccessToken();
 
+        // VietQR Sandbox yêu cầu content phải có mã VQRxxxxx để định danh giao dịch
+        String vietQrTxnId = invoice.getVietQrTransactionId();
+        String content;
+        if (vietQrTxnId != null && !vietQrTxnId.isBlank()) {
+            content = vietQrTxnId + " AIMS " + invoice.getInvoiceId();
+        } else {
+            // Fallback: không có mã VQR thì dùng content thường (có thể báo lỗi E222)
+            content = "AIMS " + invoice.getInvoiceId();
+            log.warn("No VietQR transactionId saved for invoice {}. Callback may fail with E222.", invoice.getInvoiceId());
+        }
+
         // Body gửi đến VietQR test callback trigger
         String requestBody = String.format(
-                "{\"bankAccount\":\"%s\",\"content\":\"AIMS %s\",\"amount\":%.0f,\"bankCode\":\"%s\",\"transType\":\"C\"}",
-                bankAccount, String.valueOf(invoice.getInvoiceId()), invoice.getTotalAmount(), bankCode
+                "{\"bankAccount\":\"%s\",\"content\":\"%s\",\"amount\":%.0f,\"bankCode\":\"%s\",\"transType\":\"C\"}",
+                bankAccount, content, invoice.getTotalAmount(), bankCode
         );
 
         String rawResponse = boundary.checkPaymentStatus(requestBody, token);

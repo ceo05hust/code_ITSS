@@ -32,6 +32,10 @@ public class Invoice {
     @JoinColumn(name = "transactionId", referencedColumnName = "transactionId")
     private TransactionInfo transactionInfo;
 
+    /** Lưu mã VQRxxxxx của VietQR để dùng khi trigger test callback */
+    @Column(name = "vietQrTransactionId")
+    private String vietQrTransactionId;
+
     public void markAsPaid(TransactionInfo transactionInfo) {
         this.transactionInfo = transactionInfo;
     }

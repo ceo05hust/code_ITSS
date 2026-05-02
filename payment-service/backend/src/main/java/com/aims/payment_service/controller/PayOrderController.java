@@ -49,6 +49,13 @@ public class PayOrderController {
             QRCode qrCode = paymentQRCode.generateQRCode(invoice);
             log.info("QR generated successfully for invoice: {}", invoice.getInvoiceId());
 
+            // Lưu mã VQRxxxxx để dùng khi trigger test callback
+            if (qrCode.getTransactionId() != null && !qrCode.getTransactionId().isBlank()) {
+                invoice.setVietQrTransactionId(qrCode.getTransactionId());
+                invoiceRepository.save(invoice);
+                log.info("Saved VietQR transactionId: {}", qrCode.getTransactionId());
+            }
+
             Map<String, Object> responseData = Map.of(
                     "qrCode", qrCode,
                     "invoiceId", invoice.getInvoiceId()
