@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "invoice")
+@Table(name = "\"Invoice\"")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -13,24 +13,27 @@ public class Invoice {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "invoice_id")
+    @Column(name = "\"invoiceId\"")
     private Integer invoiceId;
 
-    @Column(name = "shipping_fee")
+    @Column(name = "\"shippingFee\"")
     private double shippingFee;
 
-    @Column(name = "total_product_price_ex_vat")
+    @Column(name = "\"totalProductPriceExclVAT\"")
     private double totalProductPriceExVAT;
 
-    @Column(name = "total_product_price_inc_vat")
+    @Column(name = "\"totalProductPriceInclVAT\"")
     private double totalProductPriceIncVAT;
 
-    @Column(name = "total_amount")
+    @Column(name = "\"totalAmount\"")
     private double totalAmount;
 
     @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "transaction_id", referencedColumnName = "transaction_id")
+    @JoinColumn(name = "\"transactionId\"", referencedColumnName = "\"transactionId\"")
     private TransactionInfo transactionInfo;
+
+    @Column(name = "\"vietQrTransactionId\"")
+    private String vietQrTransactionId;
 
     public void markAsPaid(TransactionInfo transactionInfo) {
         this.transactionInfo = transactionInfo;

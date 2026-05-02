@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transaction_info")
+@Table(name = "\"TransactionInfo\"")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,28 +15,28 @@ public class TransactionInfo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "transaction_id")
+    @Column(name = "\"transactionId\"")
     private Integer transactionId;
 
-    @Column(name = "transaction_content", length = 500)
+    @Column(name = "\"transactionContent\"", length = 500)
     private String transactionContent;
 
-    @Column(name = "transaction_date_time")
+    @Column(name = "\"transactionDatetime\"")
     private LocalDateTime transactionDateTime;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method")
+    @Column(name = "\"paymentMethod\"")
     private PaymentMethod paymentMethod;
 
     /** invoiceId của Invoice liên kết */
-    @Column(name = "order_id")
+    @Column(name = "\"orderId\"")
     private Integer orderId;
 
-    @Column(name = "amount")
+    @Column(name = "\"amount\"")
     private double amount;
 
     /** "SUCCESS" | "FAILED" | "PENDING" */
-    @Column(name = "status")
+    @Column(name = "\"status\"")
     private String status;
 
     public static TransactionInfo createTransactionInfo(
