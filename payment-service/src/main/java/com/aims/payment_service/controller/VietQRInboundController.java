@@ -140,7 +140,7 @@ public class VietQRInboundController {
                 txnId,
                 payload.getContent() != null ? payload.getContent()
                         : "Thanh toan AIMS #" + invoiceIdStr,
-                invoiceId,
+                invoice,
                 payload.getAmount(),
                 PaymentMethod.VietQR
         );

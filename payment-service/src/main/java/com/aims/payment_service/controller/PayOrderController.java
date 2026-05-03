@@ -190,7 +190,7 @@ public class PayOrderController {
     ) {
         log.info("getTransactionInfo for invoice: {}", invoiceId);
 
-        return transactionRepository.findByOrderId(invoiceId)
+        return transactionRepository.findByInvoice_InvoiceId(invoiceId)
                 .map(txn -> ResponseEntity.ok(ApiResponse.ok(txn)))
                 .orElseGet(() -> ResponseEntity.ok(
                         ApiResponse.error("No transaction found for invoice: " + invoiceId)

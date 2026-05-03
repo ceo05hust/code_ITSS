@@ -16,22 +16,23 @@ public class Invoice {
     @Column(name = "\"invoiceId\"")
     private Integer invoiceId;
 
-    @Column(name = "\"shippingFee\"")
-    private double shippingFee;
-
     @Column(name = "\"totalProductPriceExclVAT\"")
     private double totalProductPriceExVAT;
 
     @Column(name = "\"totalProductPriceInclVAT\"")
     private double totalProductPriceIncVAT;
 
+    @Column(name = "\"shippingFee\"")
+    private double shippingFee;
+
     @Column(name = "\"totalAmount\"")
     private double totalAmount;
 
-    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "\"transactionId\"", referencedColumnName = "\"transactionId\"")
+    // Quan hệ 1-1, TransactionInfo là bên giữ khóa ngoại (invoiceId)
+    @OneToOne(mappedBy = "invoice", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private TransactionInfo transactionInfo;
 
+    // Field phụ phục vụ logic thanh toán (không nằm trong yêu cầu chuẩn của nhóm nhưng cần thiết cho app)
     @Column(name = "\"vietQrTransactionId\"")
     private String vietQrTransactionId;
 

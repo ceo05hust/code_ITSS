@@ -18,19 +18,19 @@ public class TransactionInfo {
     @Column(name = "\"transactionId\"")
     private Integer transactionId;
 
-    @Column(name = "\"transactionContent\"", length = 500)
-    private String transactionContent;
-
-    @Column(name = "\"transactionDatetime\"")
-    private LocalDateTime transactionDateTime;
+    @OneToOne
+    @JoinColumn(name = "\"invoiceId\"", referencedColumnName = "\"invoiceId\"")
+    private Invoice invoice;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "\"paymentMethod\"")
     private PaymentMethod paymentMethod;
 
-    /** invoiceId của Invoice liên kết */
-    @Column(name = "\"orderId\"")
-    private Integer orderId;
+    @Column(name = "\"transactionContent\"", length = 500)
+    private String transactionContent;
+
+    @Column(name = "\"transactionDatetime\"")
+    private LocalDateTime transactionDateTime;
 
     @Column(name = "\"amount\"")
     private double amount;
@@ -42,16 +42,16 @@ public class TransactionInfo {
     public static TransactionInfo createTransactionInfo(
             String vietQrTransactionId,
             String transactionContent,
-            Integer invoiceId,
+            Invoice invoice,
             double amount,
             PaymentMethod paymentMethod
     ) {
         String fullContent = "VietQR Ref: " + vietQrTransactionId + " | " + transactionContent;
         return TransactionInfo.builder()
+                .invoice(invoice)
+                .paymentMethod(paymentMethod)
                 .transactionContent(fullContent)
                 .transactionDateTime(LocalDateTime.now())
-                .paymentMethod(paymentMethod)
-                .orderId(invoiceId)
                 .amount(amount)
                 .status("SUCCESS")
                 .build();

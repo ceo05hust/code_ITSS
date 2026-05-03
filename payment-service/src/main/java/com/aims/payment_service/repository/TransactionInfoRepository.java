@@ -9,6 +9,6 @@ import java.util.Optional;
 @Repository
 public interface TransactionInfoRepository extends JpaRepository<TransactionInfo, Integer> {
 
-    /** Tìm transaction theo orderId (invoiceId) */
-    Optional<TransactionInfo> findByOrderId(Integer orderId);
+    /** Tìm transaction theo invoiceId */
+    Optional<TransactionInfo> findByInvoice_InvoiceId(Integer invoiceId);
 }
