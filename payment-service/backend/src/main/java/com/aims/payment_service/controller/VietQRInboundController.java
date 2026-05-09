@@ -42,6 +42,7 @@ public class VietQRInboundController {
 
     private final InvoiceRepository          invoiceRepository;
     private final TransactionInfoRepository  transactionRepository;
+    private final com.aims.payment_service.service.PaymentCacheService paymentCacheService;
 
     // =========================================================
     // 1. Token endpoint — VietQR gọi để lấy Bearer token
@@ -114,24 +115,26 @@ public class VietQRInboundController {
             );
         }
 
-        // 3. Tìm invoice - dùng transactionRefId hoặc trích xuất từ content "VQRxxxxx AIMS 10"
-        String invoiceIdStr = payload.extractInvoiceIdFromContent();
-        log.info("Resolved invoiceIdStr from callback: {}", invoiceIdStr);
-        Integer invoiceId = null;
-        try {
-            if (invoiceIdStr != null) invoiceId = Integer.valueOf(invoiceIdStr);
-        } catch (NumberFormatException e) {
-            log.warn("Cannot parse invoiceId to Integer: {}", invoiceIdStr);
-        }
+        // 3. Tìm invoice từ memory cache (pendingInvoices)
+        String paymentRef = payload.extractInvoiceIdFromContent(); // paymentRef thực chất lấy từ chuỗi "AIMS <paymentRef>"
+        log.info("Resolved paymentRef from callback: {}", paymentRef);
         
-        Invoice invoice  = invoiceId != null ? invoiceRepository.findById(invoiceId).orElse(null) : null;
+        Invoice invoice = null;
+        if (paymentRef != null) {
+            invoice = paymentCacheService.getPendingInvoice(paymentRef);
+        }
 
         if (invoice == null) {
-            log.warn("Invoice not found for transactionRefId: {}", invoiceIdStr);
-            // Vẫn tạo TransactionInfo mà không link invoice
+            log.warn("Invoice not found in cache for paymentRef: {}", paymentRef);
+            // Có thể payment đã xử lý rồi, hoặc QR cũ
+            throw new PaymentFailedException("No pending payment session found for: " + paymentRef);
         }
 
-        // 4. Tạo TransactionInfo (basic flow: Payment Accept)
+        // 4. LƯU INVOICE VÀO DB (để lấy ID thật)
+        invoice = invoiceRepository.save(invoice);
+        log.info("Transient Invoice saved to DB with ID: {}", invoice.getInvoiceId());
+
+        // 5. Tạo TransactionInfo
         String txnId = payload.getTransactionId() != null
                         ? payload.getTransactionId()
                         : "TXN-" + UUID.randomUUID();
@@ -139,20 +142,22 @@ public class VietQRInboundController {
         TransactionInfo transactionInfo = TransactionInfo.createTransactionInfo(
                 txnId,
                 payload.getContent() != null ? payload.getContent()
-                        : "Thanh toan AIMS #" + invoiceIdStr,
+                        : "Thanh toan AIMS " + paymentRef,
                 invoice,
                 payload.getAmount(),
                 PaymentMethod.VietQR
         );
         transactionRepository.save(transactionInfo);
-        log.info("TransactionInfo saved: DB_ID will be generated, VietQR_TxnId={}", txnId);
+        log.info("TransactionInfo saved: DB_ID generated, VietQR_TxnId={}", txnId);
 
-        // 5. Cập nhật Invoice
-        if (invoice != null) {
-            invoice.markAsPaid(transactionInfo);
-            invoiceRepository.save(invoice);
-            log.info("Invoice {} marked as PAID", invoiceIdStr);
-        }
+        // 6. Cập nhật lại liên kết và Cache
+        invoice.markAsPaid(transactionInfo);
+        invoiceRepository.save(invoice);
+        
+        // Đưa vào Cache hoàn tất và xóa khỏi Cache chờ
+        paymentCacheService.addCompletedPayment(paymentRef, transactionInfo);
+        paymentCacheService.removePendingInvoice(paymentRef);
+        log.info("Payment session {} completed successfully", paymentRef);
 
         return ResponseEntity.ok(Map.of(
                 "success", true,

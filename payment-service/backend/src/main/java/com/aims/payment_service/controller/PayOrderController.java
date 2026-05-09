@@ -35,6 +35,7 @@ public class PayOrderController {
     private final IPaymentQRCode            paymentQRCode;
     private final InvoiceRepository          invoiceRepository;
     private final TransactionInfoRepository  transactionRepository;
+    private final com.aims.payment_service.service.PaymentCacheService paymentCacheService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -47,16 +48,29 @@ public class PayOrderController {
     public ResponseEntity<ApiResponse<Object>> generateQRCode(
             @Valid @RequestBody InvoiceRequest request
     ) {
-        log.info("generateQRCode for invoice: {}", request.getInvoiceId());
+        log.info("generateQRCode for request: {}", request);
         try {
-            Invoice invoice = getOrCreateInvoice(request);
+            // Tạo paymentRef duy nhất
+            String paymentRef = "REF-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+            // Tạo Invoice tạm (chưa lưu DB)
+            Invoice invoice = Invoice.builder()
+                    .shippingFee(request.getShippingFee())
+                    .totalProductPriceExVAT(request.getTotalProductPriceExVAT())
+                    .totalProductPriceIncVAT(request.getTotalProductPriceIncVAT())
+                    .totalAmount(request.getTotalAmount())
+                    .vietQrTransactionId(paymentRef) // Lưu tạm paymentRef vào đây để IPaymentQRCode lấy làm content
+                    .build();
+
+            // Lưu vào memory cache
+            paymentCacheService.addPendingInvoice(paymentRef, invoice);
 
             QRCode qrCode = paymentQRCode.generateQRCode(invoice);
-            log.info("QR generated successfully for invoice: {}", invoice.getInvoiceId());
+            log.info("QR generated successfully for paymentRef: {}", paymentRef);
 
             Map<String, Object> responseData = Map.of(
                     "qrCode", qrCode,
-                    "invoiceId", invoice.getInvoiceId()
+                    "paymentRef", paymentRef
             );
 
             return ResponseEntity.ok(ApiResponse.ok("QR code generated", responseData));
@@ -87,47 +101,49 @@ public class PayOrderController {
     public ResponseEntity<ApiResponse<Object>> confirmPayment(
             @RequestBody Map<String, Object> body
     ) {
-        Integer invoiceId = Integer.valueOf(body.get("invoiceId").toString());
-        log.info("confirmPayment triggered for invoice: {}", invoiceId);
+        String paymentRef = body.get("paymentRef").toString();
+        log.info("confirmPayment triggered for paymentRef: {}", paymentRef);
 
         try {
-            // Kiểm tra invoice tồn tại
-            Invoice invoice = invoiceRepository.findById(invoiceId)
-                    .orElseThrow(() -> new UnknownException("Invoice not found: " + invoiceId));
-
-            // Kiểm tra đã thanh toán chưa (alt: already paid)
-            if (invoice.getTransactionInfo() != null) {
+            // Kiểm tra cache hoàn tất trước
+            TransactionInfo completed = paymentCacheService.getCompletedPayment(paymentRef);
+            if (completed != null) {
                 return ResponseEntity.ok(ApiResponse.ok(
                         "Payment successful",
-                        Map.of("transactionId", invoice.getTransactionInfo().getTransactionId(),
-                               "invoiceId", invoiceId, "status", "SUCCESS")
+                        Map.of("transactionId", completed.getTransactionId(),
+                               "paymentRef", paymentRef, "status", "SUCCESS")
                 ));
             }
 
-            // Trigger VietQR test callback (bất đồng bộ — VietQR sẽ gọi ngược về callback endpoint)
-            log.info("Triggering VietQR test callback for invoice: {}", invoiceId);
-            checkPaymentStatus(invoice); // Bỏ qua kết quả trả về từ trigger API
+            // Nếu chưa hoàn tất, kiểm tra pending
+            Invoice pendingInvoice = paymentCacheService.getPendingInvoice(paymentRef);
+            if (pendingInvoice == null) {
+                throw new UnknownException("Payment session not found or expired: " + paymentRef);
+            }
+
+            // Trigger VietQR test callback (bất đồng bộ)
+            log.info("Triggering VietQR test callback for paymentRef: {}", paymentRef);
+            checkPaymentStatus(pendingInvoice); 
 
             // Chờ 700ms để VietQR kịp gọi callback về và webhook xử lý xong
             Thread.sleep(700);
 
-            // Xóa L1 cache để Hibernate buộc đọc lại từ DB (không dùng bản cache cũ)
-            entityManager.clear();
-            Invoice refreshed = invoiceRepository.findById(invoiceId).orElse(invoice);
-            if (refreshed.getTransactionInfo() != null) {
-                log.info("Invoice {} paid successfully via VietQR callback", invoiceId);
+            // Kiểm tra lại cache xem webhook đã chạy chưa
+            TransactionInfo refreshed = paymentCacheService.getCompletedPayment(paymentRef);
+            if (refreshed != null) {
+                log.info("Payment {} paid successfully via VietQR callback", paymentRef);
                 return ResponseEntity.ok(ApiResponse.ok(
                         "Payment successful",
-                        Map.of("transactionId", refreshed.getTransactionInfo().getTransactionId(),
-                               "invoiceId", invoiceId, "status", "SUCCESS")
+                        Map.of("transactionId", refreshed.getTransactionId(),
+                               "paymentRef", paymentRef, "status", "SUCCESS")
                 ));
             }
 
-            // Webhook chưa đến kịp (hiếm gặp) — thông báo pending
-            log.warn("Invoice {} still pending after waiting for callback", invoiceId);
+            // Webhook chưa đến kịp
+            log.warn("Payment {} still pending after waiting for callback", paymentRef);
             return ResponseEntity.ok(ApiResponse.ok(
                     "Payment pending - please wait",
-                    Map.of("invoiceId", invoiceId, "status", "PENDING")
+                    Map.of("paymentRef", paymentRef, "status", "PENDING")
             ));
 
         } catch (InterruptedException e) {
@@ -135,7 +151,7 @@ public class PayOrderController {
             return ResponseEntity.status(500).body(ApiResponse.error("Interrupted"));
 
         } catch (PaymentTimeoutException e) {
-            log.warn("Payment timeout for invoice: {}", invoiceId);
+            log.warn("Payment timeout for paymentRef: {}", paymentRef);
             handleTimeout(e);
             return ResponseEntity.status(408)
                     .body(ApiResponse.error("Payment timeout: " + e.getMessage()));
@@ -163,20 +179,19 @@ public class PayOrderController {
             @RequestBody Map<String, Object> body
     ) {
         String method    = body.get("method").toString();
-        Integer invoiceId = Integer.valueOf(body.get("invoiceId").toString());
-        log.info("switchMethod: invoice={}, method={}", invoiceId, method);
+        String paymentRef = body.get("paymentRef").toString();
+        log.info("switchMethod: paymentRef={}, method={}", paymentRef, method);
 
         if ("PayPal".equalsIgnoreCase(method)) {
-            // ref: Pay Order by Credit Card — redirect to PayPal flow
             return ResponseEntity.ok(ApiResponse.ok(
                     "Switched to PayPal",
-                    Map.of("method", "PayPal", "invoiceId", invoiceId)
+                    Map.of("method", "PayPal", "paymentRef", paymentRef)
             ));
         }
 
         return ResponseEntity.ok(ApiResponse.ok(
                 "Switched to " + method,
-                Map.of("method", method, "invoiceId", invoiceId)
+                Map.of("method", method, "paymentRef", paymentRef)
         ));
     }
 
@@ -184,17 +199,17 @@ public class PayOrderController {
     // 4. Get Transaction Result (Frontend polls this)
     // =========================================================
 
-    @GetMapping("/transaction/{invoiceId}")
+    @GetMapping("/transaction/{paymentRef}")
     public ResponseEntity<ApiResponse<TransactionInfo>> returnTransactionInfo(
-            @PathVariable Integer invoiceId
+            @PathVariable String paymentRef
     ) {
-        log.info("getTransactionInfo for invoice: {}", invoiceId);
+        log.info("getTransactionInfo for paymentRef: {}", paymentRef);
 
-        return transactionRepository.findByInvoice_InvoiceId(invoiceId)
-                .map(txn -> ResponseEntity.ok(ApiResponse.ok(txn)))
-                .orElseGet(() -> ResponseEntity.ok(
-                        ApiResponse.error("No transaction found for invoice: " + invoiceId)
-                ));
+        TransactionInfo txn = paymentCacheService.getCompletedPayment(paymentRef);
+        if (txn != null) {
+            return ResponseEntity.ok(ApiResponse.ok(txn));
+        }
+        return ResponseEntity.ok(ApiResponse.error("No transaction found for paymentRef: " + paymentRef));
     }
 
     // =========================================================
@@ -252,20 +267,5 @@ public class PayOrderController {
         // sendPaymentFailureMessage() — logged and propagated
     }
 
-    // =========================================================
-    // Helper: get or create Invoice
-    // =========================================================
-
-    private Invoice getOrCreateInvoice(InvoiceRequest request) {
-        return invoiceRepository.findById(request.getInvoiceId())
-                .orElseGet(() -> {
-                    Invoice inv = Invoice.builder()
-                            .shippingFee(request.getShippingFee())
-                            .totalProductPriceExVAT(request.getTotalProductPriceExVAT())
-                            .totalProductPriceIncVAT(request.getTotalProductPriceIncVAT())
-                            .totalAmount(request.getTotalAmount())
-                            .build();
-                    return invoiceRepository.save(inv);
-                });
-    }
+    // Bỏ getOrCreateInvoice vì đã lưu cache
 }

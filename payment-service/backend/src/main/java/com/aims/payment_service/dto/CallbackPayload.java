@@ -64,14 +64,17 @@ public class CallbackPayload {
     }
 
     /**
-     * Lấy invoiceId từ content nếu transactionRefId null.
-     * VietQR Sandbox gửi content = "VQRxxxxx AIMS 10" → trích xuất số 10.
+     * Lấy paymentRef từ content nếu transactionRefId null.
+     * VietQR gửi content = "AIMS REF-A1B2C3D4" → trích xuất "REF-A1B2C3D4".
      */
     public String extractInvoiceIdFromContent() {
         if (transactionRefId != null && !transactionRefId.isBlank()) return transactionRefId;
         if (content == null) return null;
-        // Tìm pattern "AIMS <số>" trong content
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("AIMS\\s+(\\d+)").matcher(content);
-        return m.find() ? m.group(1) : null;
+        // Tìm pattern "AIMS REF-XXXXXXXX" (paymentRef mới)
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("AIMS\\s+(REF-[A-Z0-9]+)").matcher(content);
+        if (m.find()) return m.group(1);
+        // Fallback: "AIMS <số>" (invoiceId cũ)
+        java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("AIMS\\s+(\\d+)").matcher(content);
+        return m2.find() ? m2.group(1) : null;
     }
 }

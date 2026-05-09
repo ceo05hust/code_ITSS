@@ -11,7 +11,7 @@ export interface GenerateQrPayload {
 }
 
 export interface ConfirmPayload {
-  invoiceId: number;
+  paymentRef: string;
 }
 
 @Injectable({
