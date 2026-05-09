@@ -36,16 +36,8 @@ public class Invoice {
     @Column(name = "\"vietQrTransactionId\"")
     private String vietQrTransactionId;
 
+    /** Dùng khi VietQR callback xác nhận thanh toán thành công */
     public void markAsPaid(TransactionInfo transactionInfo) {
         this.transactionInfo = transactionInfo;
-    }
-
-    public void updateInvoice(double newShippingFee) {
-        this.shippingFee = newShippingFee;
-        this.totalAmount = this.totalProductPriceIncVAT + newShippingFee;
-    }
-
-    public double getTotalAmount() {
-        return totalAmount;
     }
 }

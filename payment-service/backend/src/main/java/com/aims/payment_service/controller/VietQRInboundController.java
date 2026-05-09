@@ -1,7 +1,6 @@
 package com.aims.payment_service.controller;
 
 import com.aims.payment_service.dto.CallbackPayload;
-import com.aims.payment_service.dto.ApiResponse;
 import com.aims.payment_service.entity.Invoice;
 import com.aims.payment_service.entity.PaymentMethod;
 import com.aims.payment_service.entity.TransactionInfo;
@@ -9,6 +8,7 @@ import com.aims.payment_service.exception.CallbackValidationException;
 import com.aims.payment_service.exception.PaymentFailedException;
 import com.aims.payment_service.repository.InvoiceRepository;
 import com.aims.payment_service.repository.TransactionInfoRepository;
+import com.aims.payment_service.service.PaymentCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,9 +40,9 @@ public class VietQRInboundController {
     @Value("${vietqr.callback.token}")
     private String callbackToken;
 
-    private final InvoiceRepository          invoiceRepository;
-    private final TransactionInfoRepository  transactionRepository;
-    private final com.aims.payment_service.service.PaymentCacheService paymentCacheService;
+    private final InvoiceRepository     invoiceRepository;
+    private final TransactionInfoRepository transactionRepository;
+    private final PaymentCacheService    paymentCacheService;
 
     // =========================================================
     // 1. Token endpoint — VietQR gọi để lấy Bearer token
@@ -115,8 +115,8 @@ public class VietQRInboundController {
             );
         }
 
-        // 3. Tìm invoice từ memory cache (pendingInvoices)
-        String paymentRef = payload.extractInvoiceIdFromContent(); // paymentRef thực chất lấy từ chuỗi "AIMS <paymentRef>"
+        // 3. Trích xuất paymentRef từ nội dung chuyển khoản ("AIMS REF-XXXXXXXX")
+        String paymentRef = payload.extractInvoiceIdFromContent();
         log.info("Resolved paymentRef from callback: {}", paymentRef);
         
         Invoice invoice = null;

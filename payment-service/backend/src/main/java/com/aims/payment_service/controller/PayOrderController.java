@@ -4,11 +4,8 @@ import com.aims.payment_service.dto.ApiResponse;
 import com.aims.payment_service.dto.InvoiceRequest;
 import com.aims.payment_service.entity.*;
 import com.aims.payment_service.exception.*;
-import com.aims.payment_service.repository.InvoiceRepository;
-import com.aims.payment_service.repository.TransactionInfoRepository;
+import com.aims.payment_service.service.PaymentCacheService;
 import com.aims.payment_service.subsystem.vietqr.IPaymentQRCode;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,15 +13,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * PayOrderController: REST API cho Angular frontend.
  *
  * Endpoints:
- *   POST /api/payment/generate-qr          — Tạo QR code thanh toán
- *   POST /api/payment/confirm              — Trigger test callback (simulate payment)
+ *   POST /api/payment/generate-qr          — Tạo QR code thanh toán (Invoice lưu tạm vào Memory)
+ *   POST /api/payment/confirm              — Trigger test callback, kiểm tra thanh toán
  *   POST /api/payment/switch-method        — Chuyển phương thức thanh toán
- *   GET  /api/payment/transaction/{id}     — Lấy thông tin giao dịch theo invoiceId
+ *   GET  /api/payment/transaction/{ref}    — Lấy thông tin giao dịch theo paymentRef
  */
 @Slf4j
 @RestController
@@ -32,13 +30,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PayOrderController {
 
-    private final IPaymentQRCode            paymentQRCode;
-    private final InvoiceRepository          invoiceRepository;
-    private final TransactionInfoRepository  transactionRepository;
-    private final com.aims.payment_service.service.PaymentCacheService paymentCacheService;
+    private final IPaymentQRCode     paymentQRCode;
+    private final PaymentCacheService paymentCacheService;
 
-    @PersistenceContext
-    private EntityManager entityManager;
 
     // =========================================================
     // 1. Generate QR Code
@@ -51,7 +45,7 @@ public class PayOrderController {
         log.info("generateQRCode for request: {}", request);
         try {
             // Tạo paymentRef duy nhất
-            String paymentRef = "REF-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            String paymentRef = "REF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
             // Tạo Invoice tạm (chưa lưu DB)
             Invoice invoice = Invoice.builder()
@@ -228,15 +222,6 @@ public class PayOrderController {
         }
     }
 
-    // =========================================================
-    // Private: validate callback
-    // =========================================================
-
-    public boolean validateCallback(PaymentStatus paymentStatus) {
-        return paymentStatus != null
-                && paymentStatus.getStatus() != null
-                && !paymentStatus.getStatus().isBlank();
-    }
 
     // =========================================================
     // Private: alternative flow handlers (theo class diagram)
@@ -262,10 +247,4 @@ public class PayOrderController {
         // sendInvalid() — logged and propagated
     }
 
-    private void handlePaymentFailure(Exception e) {
-        log.warn("[ALT] Payment Failed: {}", e.getMessage());
-        // sendPaymentFailureMessage() — logged and propagated
-    }
-
-    // Bỏ getOrCreateInvoice vì đã lưu cache
 }

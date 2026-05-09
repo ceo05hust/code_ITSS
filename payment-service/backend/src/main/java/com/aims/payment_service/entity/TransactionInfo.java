@@ -57,6 +57,4 @@ public class TransactionInfo {
                 .build();
     }
 
-    public Integer getTransactionId() { return transactionId; }
-    public String getStatus()        { return status; }
 }
