@@ -1,0 +1,48 @@
+Here is the comprehensive summary of the AIMS Interface and Screen Standardization Framework in English:
+Overview and Screen Layout The standardization of screen design in the AIMS web application aims to provide a consistent, responsive, and highly usable experience across different devices
+.
+Resolution and Adaptability: The minimum resolution is set to 1366 x 768 pixels, with the ability to adapt to mobile or tablet ratios
+.
+Component Placement: Menu bars must be located in a stable top area, while screen titles belong in the upper part of the page
+. Primary action buttons should be consistently placed at the bottom or right side of the working area
+.
+Content Organization: Related information (e.g., product details, payment info) must be clearly grouped
+. Text should generally be left-justified, but financial figures like totals and taxes must be right-justified in summary panels
+.
+UI Kit Standards The UI Kit ensures visual consistency by utilizing a set of reusable interface elements and rules
+.
+Typography: Inter is the primary font family, utilizing a strict size hierarchy ranging from H1 (24px bold) to helper text (12px)
+.
+Color Palette: The design follows a professional monochrome style featuring white backgrounds (#FFFFFF), black primary text (#000000), grey borders (#E5E5E5), and specific warning colors (#D32F2F)
+.
+Elements: Primary buttons feature a black background with white text, whereas secondary buttons use a white background with dark text and borders
+. Input fields and buttons must have an 8px (0.5rem) border radius
+. Consistent Material Icons and properly proportioned graphics are mandatory
+.
+Data Formatting Standardized data formats are required to improve readability and prevent user entry errors
+.
+Numbers & Currency: Numbers must use dot separators for thousands (e.g., 1.284.000), and currency amounts must consistently display the VND unit (e.g., 1.000 VND)
+.
+Dates & Identifiers: Dates follow the DD/MM/YYYY format
+. Identifiers like transaction and order IDs must adhere to specific system-defined formats
+.
+Text & Quantity: String handling dictates that long text can be truncated with ellipses, and unsupported characters are prohibited
+. Quantity fields accept only numeric values
+.
+Control and Navigation User interactions, navigation, and validation are governed by strict operational rules to guarantee a predictable flow
+.
+Input Validation: Validation must occur in a specific sequence: check if the field is empty, verify the format, and then apply business rules
+.
+User Flows: The system relies on predefined navigational sequences, such as the standard checkout flow (HomePage -> Product Detail -> Cart -> Delivery Info -> Review -> Complete -> Order Confirmed)
+. Users must always have clear, explicit "Go Back" options
+.
+Interactive Controls: Search controls must support keyword inputs and price range filters
+. Quantity controls allow direct input and +/- adjustments, triggering warnings if the amount exceeds available stock
+. Payment screens must display total amounts, QR codes, and provide a copy-to-clipboard feature for transfer content
+.
+Other Standardizations
+Error Handling & Feedback: Error messages must be concise, explain the problem, and guide the user on how to fix it
+. Invalid fields need clear visual highlights
+. Crucially, validation errors must never cause a user to lose their current progress
+.
+Domain Values: Terms across the system are standardized, such as limiting product types to Book, CD, DVD, and Newspaper, and standardizing statuses like "Active" or "Waiting for payment"

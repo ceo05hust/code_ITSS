@@ -1,11 +1,14 @@
 import { Routes } from '@angular/router';
-import { CheckoutComponent } from './components/checkout/checkout.component';
-import { QrScanComponent } from './components/qr-scan/qr-scan.component';
-import { SuccessComponent } from './components/success/success.component';
+import { InvoiceComponent }       from './pages/invoice/invoice.component';
+import { PaymentComponent }       from './pages/payment/payment.component';
+import { PaymentFailedComponent } from './pages/payment-failed/payment-failed.component';
+import { OrderSuccessComponent }  from './pages/order-success/order-success.component';
 
 export const routes: Routes = [
-  { path: '', component: CheckoutComponent },
-  { path: 'qr-scan', component: QrScanComponent },
-  { path: 'success', component: SuccessComponent },
-  { path: '**', redirectTo: '' }
+  { path: '',              redirectTo: 'invoice', pathMatch: 'full' },
+  { path: 'invoice',       component: InvoiceComponent },
+  { path: 'payment',       component: PaymentComponent },
+  { path: 'payment-failed', component: PaymentFailedComponent },
+  { path: 'success',       component: OrderSuccessComponent },
+  { path: '**',            redirectTo: 'invoice' },
 ];
