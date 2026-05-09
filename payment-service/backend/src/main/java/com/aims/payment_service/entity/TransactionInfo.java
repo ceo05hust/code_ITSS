@@ -40,13 +40,13 @@ public class TransactionInfo {
     private String status;
 
     public static TransactionInfo createTransactionInfo(
-            String vietQrTransactionId,
+            String paymentReference,
             String transactionContent,
             Invoice invoice,
             double amount,
             PaymentMethod paymentMethod
     ) {
-        String fullContent = "VietQR Ref: " + vietQrTransactionId + " | " + transactionContent;
+        String fullContent = "Payment Ref: " + paymentReference + " | " + transactionContent;
         return TransactionInfo.builder()
                 .invoice(invoice)
                 .paymentMethod(paymentMethod)

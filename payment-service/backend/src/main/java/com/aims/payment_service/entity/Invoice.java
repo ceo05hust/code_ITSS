@@ -33,8 +33,8 @@ public class Invoice {
     private TransactionInfo transactionInfo;
 
     // Field phụ phục vụ logic thanh toán (không nằm trong yêu cầu chuẩn của nhóm nhưng cần thiết cho app)
-    @Column(name = "\"vietQrTransactionId\"")
-    private String vietQrTransactionId;
+    @Column(name = "\"paymentReference\"")
+    private String paymentReference;
 
     /** Dùng khi VietQR callback xác nhận thanh toán thành công */
     public void markAsPaid(TransactionInfo transactionInfo) {

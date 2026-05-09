@@ -53,7 +53,7 @@ public class PayOrderController {
                     .totalProductPriceExVAT(request.getTotalProductPriceExVAT())
                     .totalProductPriceIncVAT(request.getTotalProductPriceIncVAT())
                     .totalAmount(request.getTotalAmount())
-                    .vietQrTransactionId(paymentRef) // Lưu tạm paymentRef vào đây để IPaymentQRCode lấy làm content
+                    .paymentReference(paymentRef) // Lưu tạm paymentRef vào đây để IPaymentQRCode lấy làm content
                     .build();
 
             // Lưu vào memory cache
