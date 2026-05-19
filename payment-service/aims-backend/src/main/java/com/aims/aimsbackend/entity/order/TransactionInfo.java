@@ -7,7 +7,7 @@ import com.aims.aimsbackend.entity.enums.PaymentMethod;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "\"TransactionInfo\"")
+@Table(name = "transaction_info")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,28 +16,23 @@ public class TransactionInfo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "\"transactionId\"")
     private Integer transactionId;
 
     @OneToOne
-    @JoinColumn(name = "\"invoiceId\"", referencedColumnName = "\"invoiceId\"")
+    @JoinColumn(name = "invoice_id")
     private Invoice invoice;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "\"paymentMethod\"")
     private PaymentMethod paymentMethod;
 
-    @Column(name = "\"transactionContent\"", length = 500)
+    @Column(length = 500)
     private String transactionContent;
 
-    @Column(name = "\"transactionDatetime\"")
     private LocalDateTime transactionDateTime;
 
-    @Column(name = "\"amount\"")
     private double amount;
 
     /** "SUCCESS" | "FAILED" | "PENDING" */
-    @Column(name = "\"status\"")
     private String status;
 
     public static TransactionInfo createTransactionInfo(

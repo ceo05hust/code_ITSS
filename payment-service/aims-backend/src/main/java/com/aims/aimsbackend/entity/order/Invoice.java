@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "\"Invoice\"")
+@Table(name = "invoice")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -13,27 +13,21 @@ public class Invoice {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "\"invoiceId\"")
     private Integer invoiceId;
 
-    @Column(name = "\"totalProductPriceExclVAT\"")
     private double totalProductPriceExVAT;
 
-    @Column(name = "\"totalProductPriceInclVAT\"")
     private double totalProductPriceIncVAT;
 
-    @Column(name = "\"shippingFee\"")
     private double shippingFee;
 
-    @Column(name = "\"totalAmount\"")
     private double totalAmount;
 
-    // Quan hệ 1-1, TransactionInfo là bên giữ khóa ngoại (invoiceId)
+    // Quan hệ 1-1, TransactionInfo là bên giữ khóa ngoại (invoice_id)
     @OneToOne(mappedBy = "invoice", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private TransactionInfo transactionInfo;
 
-    // Field phụ phục vụ logic thanh toán (không nằm trong yêu cầu chuẩn của nhóm nhưng cần thiết cho app)
-    @Column(name = "\"paymentReference\"")
+    // Field phụ phục vụ logic thanh toán
     private String paymentReference;
 
     /** Dùng khi VietQR callback xác nhận thanh toán thành công */
