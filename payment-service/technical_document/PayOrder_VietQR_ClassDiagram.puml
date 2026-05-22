@@ -1,0 +1,258 @@
+@startuml PayOrder_VietQR_ClassDiagram
+
+title Class Diagram — Use Case: PayOrder by VietQR
+
+' ================================================================
+' LAYOUT & STYLE
+' ================================================================
+skinparam classAttributeIconSize 0
+skinparam classFontStyle bold
+skinparam classFontSize 13
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam ClassBorderColor #555555
+skinparam linetype ortho
+
+hide empty members
+
+' ================================================================
+' PACKAGE: controller
+' ================================================================
+package "controller" #E8F4FD {
+
+    class PayOrderController <<RestController>> {
+        - paymentService : PaymentService
+        - transactionInfoService : TransactionInfoService
+        --
+        + generateQRCode(response : InvoiceResponse) : ResponseEntity
+        + simulatePayment(request : SimulatePaymentRequest) : ResponseEntity
+        + getTransactionStatus(externalTransactionId : String) : ResponseEntity
+        + switchMethod(body : Map) : ResponseEntity
+    }
+
+    class VietQRWebhookController <<RestController>> {
+        - paymentService : PaymentService
+        --
+        + receiveWebhook(webhookRequest : WebhookRequest) : ResponseEntity
+    }
+}
+
+' ================================================================
+' PACKAGE: service
+' ================================================================
+package "service.order" #EAF7EA {
+
+    class PaymentService <<Service>> {
+        - vietQRService : IPaymentQRCode
+        - transactionInfoService : TransactionInfoService
+        - webhookCallbackUrl : String
+        --
+        + generateVietQR(invoiceResponse : InvoiceResponse) : GenerateQRResult
+        + simulatePayment(request : SimulatePaymentRequest) : void
+        + processWebhook(webhookRequest : WebhookRequest) : TransactionInfo
+    }
+
+    class GenerateQRResult <<record>> {
+        + externalTransactionId : String
+        + qrCode : QRCode
+    }
+
+    class TransactionInfoService <<Service>> {
+        - transactionInfoRepository : TransactionInfoRepository
+        --
+        + createTransactionInfo(externalTransactionId : String, content : String, amount : BigDecimal, method : PaymentMethod) : TransactionInfo
+        + findByExternalTransactionId(externalTransactionId : String) : TransactionInfo
+    }
+}
+
+' ================================================================
+' PACKAGE: subsystem.vietqr
+' ================================================================
+package "subsystem.vietqr" #FFF8E8 {
+
+    interface IPaymentQRCode <<interface>> {
+        + generateQRCode(response : InvoiceResponse, externalTransactionId : String) : QRCode
+        + triggerTestCallback(externalTransactionId : String, amount : BigDecimal) : void
+    }
+
+    class VietQRController <<Service>> {
+        - boundary : VietQRBoundary
+        - apiUsername : String
+        - apiPassword : String
+        - bankCode : String
+        - bankName : String
+        - bankAccount : String
+        - bankUserName : String
+        - cachedToken : String
+        - tokenExpiry : Instant
+        --
+        + getValidAccessToken() : String
+        + generateQRCode(response : InvoiceResponse, externalTransactionId : String) : QRCode
+        + triggerTestCallback(externalTransactionId : String, amount : BigDecimal) : void
+    }
+
+    class QRCode <<Response>> {
+        + qrCode : String
+        + qrLink : String
+        + bankCode : String
+        + bankName : String
+        + bankAccount : String
+        --
+        + parseQRCodeResponse(response : String) : void
+    }
+
+    class VietQRBoundary <<Component>> {
+        - GET_TOKEN_URL : String
+        - GENERATE_QR_URL : String
+        - TEST_CALLBACK_URL : String
+        - restTemplate : RestTemplate
+        --
+        ~ getAccessToken(authorizationHeader : String) : String
+        ~ generateQRCode(requestString : String, bearerToken : String) : String
+        ~ checkPaymentStatus(requestString : String, bearerToken : String) : String
+    }
+}
+
+' ================================================================
+' PACKAGE: dto
+' ================================================================
+package "dto" #F5F0FF {
+
+    class InvoiceResponse <<DTO>> {
+        + totalProductPriceExclVAT : BigDecimal
+        + totalProductPriceInclVAT : BigDecimal
+        + shippingFee : BigDecimal
+        + totalAmount : BigDecimal
+        --
+        + {static} from(invoice : Invoice) : InvoiceResponse
+    }
+
+    class SimulatePaymentRequest <<DTO>> {
+        + externalTransactionId : String
+        + amount : BigDecimal
+    }
+
+    class WebhookRequest <<DTO>> {
+        + transactionRefId : String
+        + amount : BigDecimal
+        + transactionId : String
+        + transactionDate : String
+        + content : String
+        --
+        + extractTransactionRefId() : String
+    }
+
+    class ApiResponse <<DTO>> {
+        + status : String
+        + message : String
+        + data : T
+        --
+        + {static} ok(message : String, data : T) : ApiResponse
+        + {static} error(message : String) : ApiResponse
+    }
+}
+
+' ================================================================
+' PACKAGE: entity.order
+' ================================================================
+package "entity.order" #FFF0F0 {
+
+    class TransactionInfo <<Entity>> {
+        + transactionId : Long
+        + externalTransactionId : String
+        + paymentMethod : PaymentMethod
+        + transactionContent : String
+        + transactionDatetime : LocalDateTime
+        + amount : BigDecimal
+    }
+
+}
+
+' ================================================================
+' PACKAGE: entity.enums
+' ================================================================
+package "entity.enums" #F0F0F0 {
+
+    enum PaymentMethod {
+        VIETQR
+        PAYPAL
+    }
+}
+
+' ================================================================
+' PACKAGE: exception.order
+' ================================================================
+package "exception.order" #FFF5F5 {
+
+    abstract class PaymentException {
+        + message : String
+    }
+
+    class InvalidTokenException {
+    }
+
+    class QRCodeGenerationException {
+    }
+
+    class PaymentTimeoutException {
+    }
+
+    class PaymentFailedException {
+    }
+
+    class CallbackValidationException {
+    }
+
+    class UnknownException {
+    }
+}
+
+' ================================================================
+' RELATIONSHIPS
+' ================================================================
+
+' --- Controller layer ---
+PayOrderController       --> PaymentService          : uses
+PayOrderController       --> TransactionInfoService  : uses
+VietQRWebhookController  --> PaymentService          : uses
+
+' --- Service layer ---
+PaymentService           --> IPaymentQRCode          : uses
+PaymentService           --> TransactionInfoService  : uses
+PaymentService           ..> GenerateQRResult        : creates
+PaymentService           ..> TransactionInfo         : returns
+PaymentService           ..> WebhookRequest          : processes
+
+' --- Subsystem ---
+VietQRController         ..|> IPaymentQRCode         : implements
+VietQRController         --> VietQRBoundary          : delegates
+VietQRController         ..> QRCode                  : creates
+
+' --- DTO usage ---
+PayOrderController       ..> InvoiceResponse         : receives
+PayOrderController       ..> SimulatePaymentRequest  : receives
+PayOrderController       ..> ApiResponse             : returns
+VietQRWebhookController  ..> WebhookRequest          : receives
+
+' --- Entity relationships ---
+TransactionInfo          --> PaymentMethod            : uses
+GenerateQRResult         --> QRCode                  : contains
+
+' --- Exception hierarchy ---
+InvalidTokenException       --|> PaymentException
+QRCodeGenerationException   --|> PaymentException
+PaymentTimeoutException     --|> PaymentException
+PaymentFailedException      --|> PaymentException
+CallbackValidationException --|> PaymentException
+UnknownException            --|> PaymentException
+
+' --- Exception throws ---
+VietQRController         ..> InvalidTokenException       : throws
+VietQRController         ..> QRCodeGenerationException   : throws
+VietQRBoundary           ..> InvalidTokenException       : throws
+VietQRBoundary           ..> QRCodeGenerationException   : throws
+VietQRBoundary           ..> UnknownException            : throws
+PaymentService           ..> PaymentTimeoutException     : throws
+PaymentService           ..> PaymentFailedException      : throws
+
+@enduml

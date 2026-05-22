@@ -1,4 +1,4 @@
-package com.aims.aimsbackend.entity.order;
+package com.aims.aimsbackend.subsystem.vietqr.response;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

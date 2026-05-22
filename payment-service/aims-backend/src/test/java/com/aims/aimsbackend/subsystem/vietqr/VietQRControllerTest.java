@@ -1,7 +1,7 @@
 package com.aims.aimsbackend.subsystem.vietqr;
 
 import com.aims.aimsbackend.dto.InvoiceResponse;
-import com.aims.aimsbackend.entity.order.QRCode;
+import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 import com.aims.aimsbackend.exception.order.InvalidTokenException;
 import com.aims.aimsbackend.exception.order.QRCodeGenerationException;
 import org.junit.jupiter.api.BeforeEach;

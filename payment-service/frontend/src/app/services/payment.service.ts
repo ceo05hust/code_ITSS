@@ -3,15 +3,20 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface GenerateQrPayload {
-  invoiceId: number;
   shippingFee: number;
-  totalProductPriceExVAT: number;
-  totalProductPriceIncVAT: number;
+  totalProductPriceExclVAT: number;
+  totalProductPriceInclVAT: number;
   totalAmount: number;
 }
 
-export interface ConfirmPayload {
-  paymentRef: string;
+export interface SimulatePaymentPayload {
+  externalTransactionId: string;
+  amount: number;
+}
+
+export interface SwitchMethodPayload {
+  externalTransactionId: string;
+  method: string;
 }
 
 export interface ApiResponse<T> {
@@ -27,17 +32,21 @@ export class PaymentService {
   constructor(private http: HttpClient) {}
 
   generateQr(payload: GenerateQrPayload): Observable<ApiResponse<{
-    qrCode: { qrCode: string; qrLink: string; content: string; bankCode: string; bankName: string; bankAccount: string };
-    paymentRef: string;
+    qrCode: { qrCode: string; qrLink: string; content?: string; bankCode: string; bankName: string; bankAccount: string };
+    externalTransactionId: string;
   }>> {
     return this.http.post<any>(`${this.apiUrl}/generate-qr`, payload);
   }
 
-  confirmPayment(payload: ConfirmPayload): Observable<ApiResponse<{ transactionId: string; paymentRef: string; status: string }>> {
-    return this.http.post<any>(`${this.apiUrl}/confirm`, payload);
+  simulatePayment(payload: SimulatePaymentPayload): Observable<ApiResponse<any>> {
+    return this.http.post<any>(`${this.apiUrl}/simulate-payment`, payload);
   }
 
-  getTransaction(paymentRef: string): Observable<ApiResponse<any>> {
-    return this.http.get<any>(`${this.apiUrl}/transaction/${paymentRef}`);
+  getTransaction(externalTransactionId: string): Observable<ApiResponse<{ status: string; transactionId?: number; externalTransactionId: string; amount?: number }>> {
+    return this.http.get<any>(`${this.apiUrl}/transaction/${externalTransactionId}`);
+  }
+
+  switchMethod(payload: SwitchMethodPayload): Observable<ApiResponse<any>> {
+    return this.http.post<any>(`${this.apiUrl}/switch-method`, payload);
   }
 }

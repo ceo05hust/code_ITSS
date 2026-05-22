@@ -4,7 +4,7 @@ import com.aims.aimsbackend.dto.InvoiceResponse;
 import com.aims.aimsbackend.dto.SimulatePaymentRequest;
 import com.aims.aimsbackend.dto.WebhookRequest;
 import com.aims.aimsbackend.entity.enums.PaymentMethod;
-import com.aims.aimsbackend.entity.order.QRCode;
+import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 import com.aims.aimsbackend.entity.order.TransactionInfo;
 import com.aims.aimsbackend.subsystem.vietqr.IPaymentQRCode;
 import lombok.RequiredArgsConstructor;

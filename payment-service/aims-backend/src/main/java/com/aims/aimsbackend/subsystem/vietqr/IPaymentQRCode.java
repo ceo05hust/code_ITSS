@@ -1,7 +1,7 @@
 package com.aims.aimsbackend.subsystem.vietqr;
 
 import com.aims.aimsbackend.dto.InvoiceResponse;
-import com.aims.aimsbackend.entity.order.QRCode;
+import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 
 import java.math.BigDecimal;
 
