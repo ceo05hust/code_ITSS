@@ -97,6 +97,13 @@ public class PaymentService {
             throw new IllegalArgumentException("Missing or invalid transaction reference in webhook");
         }
 
+        // Chặn giao dịch trùng lặp: Nếu mã QR này đã thanh toán rồi thì từ chối webhook
+        TransactionInfo existingTxn = transactionInfoService.findByExternalTransactionId(extractedId);
+        if (existingTxn != null) {
+            log.warn("Transaction {} has already been paid.", extractedId);
+            throw new com.aims.aimsbackend.exception.order.PaymentFailedException("Transaction has already been paid.");
+        }
+
         // Nội dung giao dịch: ưu tiên lấy từ webhook, nếu không có thì tự tổng hợp
         String content = (webhookRequest.getContent() != null && !webhookRequest.getContent().isBlank())
                 ? webhookRequest.getContent()
