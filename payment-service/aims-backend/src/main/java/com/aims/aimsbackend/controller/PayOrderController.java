@@ -1,12 +1,15 @@
 package com.aims.aimsbackend.controller;
 
 import com.aims.aimsbackend.dto.ApiResponse;
-import com.aims.aimsbackend.dto.InvoiceRequest;
-import com.aims.aimsbackend.entity.order.*;
-import com.aims.aimsbackend.entity.enums.*;
-import com.aims.aimsbackend.exception.order.*;
-import com.aims.aimsbackend.service.order.PaymentCacheService;
-import com.aims.aimsbackend.subsystem.vietqr.IPaymentQRCode;
+import com.aims.aimsbackend.dto.InvoiceResponse;
+import com.aims.aimsbackend.dto.SimulatePaymentRequest;
+import com.aims.aimsbackend.dto.WebhookRequest;
+import com.aims.aimsbackend.entity.order.TransactionInfo;
+import com.aims.aimsbackend.exception.order.InvalidTokenException;
+import com.aims.aimsbackend.exception.order.QRCodeGenerationException;
+import com.aims.aimsbackend.exception.order.UnknownException;
+import com.aims.aimsbackend.service.order.PaymentService;
+import com.aims.aimsbackend.service.order.PaymentService.GenerateQRResult;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,16 +17,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.UUID;
 
 /**
- * PayOrderController: REST API cho Angular frontend.
+ * PayOrderController — REST API endpoints cho use-case PayOrder by VietQR.
  *
  * Endpoints:
- *   POST /api/payment/generate-qr          — Tạo QR code thanh toán (Invoice lưu tạm vào Memory)
- *   POST /api/payment/confirm              — Trigger test callback, kiểm tra thanh toán
- *   POST /api/payment/switch-method        — Chuyển phương thức thanh toán
- *   GET  /api/payment/transaction/{ref}    — Lấy thông tin giao dịch theo paymentRef
+ *   POST /api/payment/generate-qr       — Nhận thông tin đơn hàng, trả về QR code + externalTransactionId
+ *   POST /api/payment/simulate-payment  — Kích hoạt giả lập thanh toán thành công (chỉ dùng khi test)
+ *   POST /api/payment/webhook           — Nhận callback từ VietQR sau khi thanh toán thành công
+ *
+ * Test bằng Postman:
+ *   1. POST /api/payment/generate-qr        Body: { "shippingFee": 12000, "totalAmount": 507000, ... }
+ *   2. POST /api/payment/simulate-payment   Body: { "externalTransactionId": "REF-XXXXXX", "amount": 507000 }
+ *   3. Webhook sẽ tự động được gọi bởi VietQR — không cần gọi thủ công
  */
 @Slf4j
 @RestController
@@ -31,221 +37,133 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PayOrderController {
 
-    private final IPaymentQRCode     paymentQRCode;
-    private final PaymentCacheService paymentCacheService;
-
+    private final PaymentService paymentService;
+    private final com.aims.aimsbackend.service.order.TransactionInfoService transactionInfoService;
 
     // =========================================================
-    // 1. Generate QR Code
+    // POST /api/payment/generate-qr
     // =========================================================
 
     @PostMapping("/generate-qr")
     public ResponseEntity<ApiResponse<Object>> generateQRCode(
-            @Valid @RequestBody InvoiceRequest request
+            @Valid @RequestBody InvoiceResponse response
     ) {
-        log.info("generateQRCode for request: {}", request);
+        log.info("generateQRCode called — totalAmount={}", response.getTotalAmount());
         try {
-            // Tạo paymentRef duy nhất
-            String paymentRef = "REF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-
-            // Tạo Invoice tạm (chưa lưu DB)
-            Invoice invoice = Invoice.builder()
-                    .shippingFee(request.getShippingFee())
-                    .totalProductPriceExVAT(request.getTotalProductPriceExVAT())
-                    .totalProductPriceIncVAT(request.getTotalProductPriceIncVAT())
-                    .totalAmount(request.getTotalAmount())
-                    .paymentReference(paymentRef) // Lưu tạm paymentRef vào đây để IPaymentQRCode lấy làm content
-                    .build();
-
-            // Lưu vào memory cache
-            paymentCacheService.addPendingInvoice(paymentRef, invoice);
-
-            QRCode qrCode = paymentQRCode.generateQRCode(invoice);
-            log.info("QR generated successfully for paymentRef: {}", paymentRef);
+            GenerateQRResult result = paymentService.generateVietQR(response);
 
             Map<String, Object> responseData = Map.of(
-                    "qrCode", qrCode,
-                    "paymentRef", paymentRef
+                    "externalTransactionId", result.externalTransactionId(),
+                    "qrCode",               result.qrCode()
             );
-
-            return ResponseEntity.ok(ApiResponse.ok("QR code generated", responseData));
+            return ResponseEntity.ok(ApiResponse.ok("QR code generated successfully", responseData));
 
         } catch (InvalidTokenException e) {
-            log.error("Auth failure while generating QR: {}", e.getMessage());
-            handleAuthenticationFailure(e);
+            log.error("[AUTH FAILURE] {}", e.getMessage());
             return ResponseEntity.status(503)
-                    .body(ApiResponse.error("Service unavailable: " + e.getMessage()));
+                    .body(ApiResponse.error("VietQR auth failed: " + e.getMessage()));
 
         } catch (QRCodeGenerationException e) {
-            log.error("QR generation failed: {}", e.getMessage());
-            handleQRGenerationFailure(e);
+            log.error("[QR FAILURE] {}", e.getMessage());
             return ResponseEntity.status(502)
                     .body(ApiResponse.error("QR generation failed: " + e.getMessage()));
 
         } catch (Exception e) {
-            log.error("Unknown error generating QR: {}", e.getMessage());
+            log.error("[UNKNOWN] {}", e.getMessage());
             throw new UnknownException("Unexpected error: " + e.getMessage());
         }
     }
 
     // =========================================================
-    // 2. Confirm Payment (Trigger Test Callback)
+    // POST /api/payment/simulate-payment
     // =========================================================
 
-    @PostMapping("/confirm")
-    public ResponseEntity<ApiResponse<Object>> confirmPayment(
-            @RequestBody Map<String, Object> body
+    /**
+     * Kích hoạt giả lập thanh toán thành công.
+     * Chỉ sử dụng trong môi trường test/dev — KHÔNG dùng trên production.
+     */
+    @PostMapping("/simulate-payment")
+    public ResponseEntity<ApiResponse<Object>> simulatePayment(
+            @Valid @RequestBody SimulatePaymentRequest request
     ) {
-        String paymentRef = body.get("paymentRef").toString();
-        log.info("confirmPayment triggered for paymentRef: {}", paymentRef);
-
+        log.info("simulatePayment called — externalTransactionId={}", request.getExternalTransactionId());
         try {
-            // Kiểm tra cache hoàn tất trước
-            TransactionInfo completed = paymentCacheService.getCompletedPayment(paymentRef);
-            if (completed != null) {
-                return ResponseEntity.ok(ApiResponse.ok(
-                        "Payment successful",
-                        Map.of("transactionId", completed.getTransactionId(),
-                               "paymentRef", paymentRef, "status", "SUCCESS")
-                ));
-            }
+            paymentService.simulatePayment(request);
 
-            // Nếu chưa hoàn tất, kiểm tra pending
-            Invoice pendingInvoice = paymentCacheService.getPendingInvoice(paymentRef);
-            if (pendingInvoice == null) {
-                throw new UnknownException("Payment session not found or expired: " + paymentRef);
-            }
-
-            // Trigger VietQR test callback (bất đồng bộ)
-            log.info("Triggering VietQR test callback for paymentRef: {}", paymentRef);
-            checkPaymentStatus(pendingInvoice); 
-
-            // Chờ 700ms để VietQR kịp gọi callback về và webhook xử lý xong
-            Thread.sleep(700);
-
-            // Kiểm tra lại cache xem webhook đã chạy chưa
-            TransactionInfo refreshed = paymentCacheService.getCompletedPayment(paymentRef);
-            if (refreshed != null) {
-                log.info("Payment {} paid successfully via VietQR callback", paymentRef);
-                return ResponseEntity.ok(ApiResponse.ok(
-                        "Payment successful",
-                        Map.of("transactionId", refreshed.getTransactionId(),
-                               "paymentRef", paymentRef, "status", "SUCCESS")
-                ));
-            }
-
-            // Webhook chưa đến kịp
-            log.warn("Payment {} still pending after waiting for callback", paymentRef);
             return ResponseEntity.ok(ApiResponse.ok(
-                    "Payment pending - please wait",
-                    Map.of("paymentRef", paymentRef, "status", "PENDING")
+                    "Simulate payment request sent. VietQR will call back to our webhook shortly.",
+                    Map.of("externalTransactionId", request.getExternalTransactionId())
             ));
 
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return ResponseEntity.status(500).body(ApiResponse.error("Interrupted"));
-
-        } catch (PaymentTimeoutException e) {
-            log.warn("Payment timeout for paymentRef: {}", paymentRef);
-            handleTimeout(e);
-            return ResponseEntity.status(408)
-                    .body(ApiResponse.error("Payment timeout: " + e.getMessage()));
-
-        } catch (CallbackValidationException e) {
-            log.error("Callback validation failed: {}", e.getMessage());
-            handleCallbackViolation(e);
-            return ResponseEntity.status(400)
-                    .body(ApiResponse.error("Security verification failed: " + e.getMessage()));
+        } catch (InvalidTokenException e) {
+            log.error("[AUTH FAILURE] {}", e.getMessage());
+            return ResponseEntity.status(503)
+                    .body(ApiResponse.error("VietQR auth failed: " + e.getMessage()));
 
         } catch (Exception e) {
-            log.error("Error confirming payment: {}", e.getMessage());
+            log.error("[SIMULATE FAILURE] {}", e.getMessage());
             return ResponseEntity.status(500)
-                    .body(ApiResponse.error("Error: " + e.getMessage()));
+                    .body(ApiResponse.error("Simulation failed: " + e.getMessage()));
         }
     }
 
+    // =========================================================
+    // GET /api/payment/transaction/{externalTransactionId}
+    // =========================================================
+
+    /**
+     * API Polling để Frontend kiểm tra trạng thái giao dịch.
+     * Trả về SUCCESS nếu webhook đã lưu, ngược lại trả về PENDING.
+     */
+    @GetMapping("/transaction/{externalTransactionId}")
+    public ResponseEntity<ApiResponse<Object>> getTransactionStatus(
+            @PathVariable String externalTransactionId
+    ) {
+        log.info("getTransactionStatus called — externalTransactionId={}", externalTransactionId);
+        try {
+            TransactionInfo txn = transactionInfoService.findByExternalTransactionId(externalTransactionId);
+            if (txn != null) {
+                return ResponseEntity.ok(ApiResponse.ok(
+                        "Payment successful",
+                        Map.of(
+                                "status", "SUCCESS",
+                                "transactionId", txn.getTransactionId(),
+                                "externalTransactionId", txn.getExternalTransactionId(),
+                                "amount", txn.getAmount()
+                        )
+                ));
+            }
+            return ResponseEntity.ok(ApiResponse.ok(
+                    "Payment pending",
+                    Map.of("status", "PENDING", "externalTransactionId", externalTransactionId)
+            ));
+        } catch (Exception e) {
+            log.error("[POLLING FAILURE] {}", e.getMessage());
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to check status: " + e.getMessage()));
+        }
+    }
 
     // =========================================================
-    // 3. Switch Payment Method
+    // POST /api/payment/switch-method
     // =========================================================
 
+    /**
+     * Chuyển đổi phương thức thanh toán sang PayPal hoặc method khác.
+     */
     @PostMapping("/switch-method")
     public ResponseEntity<ApiResponse<Object>> switchMethod(
             @RequestBody Map<String, Object> body
     ) {
-        String method    = body.get("method").toString();
-        String paymentRef = body.get("paymentRef").toString();
-        log.info("switchMethod: paymentRef={}, method={}", paymentRef, method);
+        String method = body.getOrDefault("method", "PayPal").toString();
+        String externalTransactionId = body.getOrDefault("externalTransactionId", "").toString();
+        log.info("switchMethod called — externalTransactionId={}, method={}", externalTransactionId, method);
 
-        if ("PayPal".equalsIgnoreCase(method)) {
-            return ResponseEntity.ok(ApiResponse.ok(
-                    "Switched to PayPal",
-                    Map.of("method", "PayPal", "paymentRef", paymentRef)
-            ));
-        }
-
+        // Chúng ta chỉ trả về 200 OK để Frontend chuyển hướng sang luồng PayPal.
+        // Có thể mở rộng để cập nhật trạng thái đơn hàng bị hủy bỏ vào Database nếu cần.
         return ResponseEntity.ok(ApiResponse.ok(
                 "Switched to " + method,
-                Map.of("method", method, "paymentRef", paymentRef)
+                Map.of("method", method, "externalTransactionId", externalTransactionId)
         ));
     }
-
-    // =========================================================
-    // 4. Get Transaction Result (Frontend polls this)
-    // =========================================================
-
-    @GetMapping("/transaction/{paymentRef}")
-    public ResponseEntity<ApiResponse<TransactionInfo>> returnTransactionInfo(
-            @PathVariable String paymentRef
-    ) {
-        log.info("getTransactionInfo for paymentRef: {}", paymentRef);
-
-        TransactionInfo txn = paymentCacheService.getCompletedPayment(paymentRef);
-        if (txn != null) {
-            return ResponseEntity.ok(ApiResponse.ok(txn));
-        }
-        return ResponseEntity.ok(ApiResponse.error("No transaction found for paymentRef: " + paymentRef));
-    }
-
-    // =========================================================
-    // Helper: check payment status (gọi VietQR test API)
-    // =========================================================
-
-    public PaymentStatus checkPaymentStatus(Invoice invoice) {
-        try {
-            String result = paymentQRCode.checkPaymentStatus(invoice);
-            return new PaymentStatus(
-                    "SUCCESS".equals(result) ? "00" : result,
-                    "Payment status: " + result
-            );
-        } catch (Exception e) {
-            return new PaymentStatus("FAILED", e.getMessage());
-        }
-    }
-
-
-    // =========================================================
-    // Private: alternative flow handlers (theo class diagram)
-    // =========================================================
-
-    private void handleAuthenticationFailure(Exception e) {
-        log.error("[ALT] Authentication Failure: {}", e.getMessage());
-        // sendServiceUnavailableError() — logged and propagated
-    }
-
-    private void handleQRGenerationFailure(Exception e) {
-        log.error("[ALT] QR Generation Failure: {}", e.getMessage());
-        // sendPaymentGenerationError() — logged and propagated
-    }
-
-    private void handleTimeout(Exception e) {
-        log.warn("[ALT] Payment Timeout: {}", e.getMessage());
-        // sendQRCodeExpired() — logged and propagated
-    }
-
-    private void handleCallbackViolation(Exception e) {
-        log.error("[ALT] Callback Violation (Data Tampered): {}", e.getMessage());
-        // sendInvalid() — logged and propagated
-    }
-
 }

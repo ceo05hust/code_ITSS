@@ -1,22 +1,28 @@
 package com.aims.aimsbackend.subsystem.vietqr;
 
-import com.aims.aimsbackend.entity.order.Invoice;
+import com.aims.aimsbackend.dto.InvoiceResponse;
 import com.aims.aimsbackend.entity.order.QRCode;
 import com.aims.aimsbackend.exception.order.InvalidTokenException;
 import com.aims.aimsbackend.exception.order.QRCodeGenerationException;
+import com.aims.aimsbackend.exception.order.UnknownException;
 import com.aims.aimsbackend.subsystem.vietqr.request.QRAccessTokenRequest;
 import com.aims.aimsbackend.subsystem.vietqr.request.QRGenerateRequest;
+import com.aims.aimsbackend.subsystem.vietqr.request.TestCallbackRequest;
 import com.aims.aimsbackend.subsystem.vietqr.response.QRAccessTokenResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * VietQRController (Service layer):
- * Xử lý business logic cho VietQR subsystem.
- * Implements IPaymentQRCode, sử dụng VietQRBoundary để gọi API.
+ * VietQRController — Tầng giao tiếp với VietQR external API.
+ *
+ * Implements IPaymentQRCode và đóng gói toàn bộ logic gọi API VietQR:
+ *   1. Lấy Access Token (có cache, tự refresh khi hết hạn)
+ *   2. Tạo mã QR thanh toán
+ *   3. Kích hoạt giả lập thanh toán thành công qua test-callback
  */
 @Slf4j
 @Service
@@ -42,16 +48,21 @@ public class VietQRController implements IPaymentQRCode {
     @Value("${vietqr.bank.user-name}")
     private String bankUserName;
 
-    // Token cache
-    private String cachedToken;
+    // ---- Token cache ----
+    private String  cachedToken;
     private Instant tokenExpiry = Instant.EPOCH;
 
     public VietQRController(VietQRBoundary boundary) {
         this.boundary = boundary;
     }
 
+    // =========================================================
+    // 1. Get Access Token (with cache)
+    // =========================================================
+
     /**
-     * Lấy access token hợp lệ (có cache, tự refresh khi hết hạn).
+     * Lấy access token hợp lệ từ VietQR.
+     * Token được cache lại và tự động làm mới khi hết hạn.
      */
     public String getValidAccessToken() {
         if (cachedToken != null && Instant.now().isBefore(tokenExpiry)) {
@@ -61,8 +72,8 @@ public class VietQRController implements IPaymentQRCode {
 
         log.info("Fetching new VietQR access token...");
         QRAccessTokenRequest tokenRequest = new QRAccessTokenRequest(apiUsername, apiPassword);
-        String authHeader    = tokenRequest.buildAuthorizationHeader();
-        String rawResponse   = boundary.getAccessToken(authHeader);
+        String authHeader  = tokenRequest.buildAuthorizationHeader();
+        String rawResponse = boundary.getAccessToken(authHeader);
 
         QRAccessTokenResponse tokenResponse = new QRAccessTokenResponse();
         tokenResponse.parseResponseString(rawResponse);
@@ -72,7 +83,7 @@ public class VietQRController implements IPaymentQRCode {
         }
 
         this.cachedToken = tokenResponse.getAccessToken();
-        // Giảm 60 giây để an toàn
+        // Giảm 60 giây để an toàn trước khi hết hạn
         this.tokenExpiry = Instant.now().plusSeconds(
                 Math.max(tokenResponse.getExpiresIn() - 60, 60)
         );
@@ -81,11 +92,19 @@ public class VietQRController implements IPaymentQRCode {
         return cachedToken;
     }
 
+    // =========================================================
+    // 2. Generate QR Code
+    // =========================================================
+
     /**
-     * Tạo QR Code thanh toán cho invoice.
+     * Tạo mã QR thanh toán từ thông tin đơn hàng.
+     *
+     * @param response              Thông tin đơn hàng phản hồi từ hệ thống (số tiền, phí ship, v.v.)
+     * @param externalTransactionId Mã tham chiếu giao dịch duy nhất
+     * @return QRCode               Đối tượng chứa URL ảnh QR và data QR
      */
     @Override
-    public QRCode generateQRCode(Invoice invoice) {
+    public QRCode generateQRCode(InvoiceResponse response, String externalTransactionId) {
         String token = getValidAccessToken();
 
         QRGenerateRequest generateRequest = QRGenerateRequest.builder()
@@ -93,10 +112,10 @@ public class VietQRController implements IPaymentQRCode {
                 .bankName(bankName)
                 .bankAccount(bankAccount)
                 .userBankName(bankUserName)
-                .amount(invoice.getTotalAmount())
-                .content("AIMS " + invoice.getPaymentReference()) // paymentRef là duy nhất
+                .amount(response.getTotalAmount().doubleValue())
+                .content("AIMS " + externalTransactionId)   // Nội dung chuyển khoản
                 .qrType(0)
-                .orderId(invoice.getPaymentReference())
+                .orderId(externalTransactionId)
                 .transType("C")
                 .build();
 
@@ -106,38 +125,47 @@ public class VietQRController implements IPaymentQRCode {
         qrCode.parseQRCodeResponse(rawResponse);
 
         if (qrCode.getQrCode() == null || qrCode.getQrCode().isBlank()) {
-            throw new QRCodeGenerationException("VietQR returned empty QR code for invoice " + invoice.getInvoiceId());
+            throw new QRCodeGenerationException("VietQR returned empty QR code for externalTransactionId: " + externalTransactionId);
         }
 
         return qrCode;
     }
 
+    // =========================================================
+    // 3. Trigger Test Callback (Giả lập thanh toán)
+    // =========================================================
+
     /**
-     * Gọi VietQR để trigger test callback (simulate payment).
+     * Kích hoạt giả lập thanh toán thành công bằng cách gọi VietQR test-callback API.
+     * VietQR sẽ nhận request này rồi gọi lại webhook của chúng ta (callbackUrl).
      *
-     * @param invoice Hóa đơn cần kiểm tra thanh toán giả lập
-     * @return "SUCCESS" | "FAILED" | "PENDING"
+     * @param externalTransactionId Mã tham chiếu giao dịch — khớp với mã đã dùng khi tạo QR
+     * @param amount                Số tiền cần giả lập
      */
     @Override
-    public String checkPaymentStatus(Invoice invoice) {
-        String token = getValidAccessToken();
+    public void triggerTestCallback(String externalTransactionId, BigDecimal amount) {
+        log.info("Triggering test callback — externalTransactionId={}, amount={}", externalTransactionId, amount);
 
-        // Body gửi đến VietQR test callback trigger
-        String requestBody = String.format(
-                "{\"bankAccount\":\"%s\",\"content\":\"AIMS %s\",\"amount\":%.0f,\"bankCode\":\"%s\",\"transType\":\"C\"}",
-                bankAccount, invoice.getPaymentReference(), invoice.getTotalAmount(), bankCode
-        );
+        try {
+            String token = getValidAccessToken();
 
-        String rawResponse = boundary.checkPaymentStatus(requestBody, token);
-        log.info("VietQR checkPaymentStatus raw response: {}", rawResponse);
+            TestCallbackRequest callbackRequest = TestCallbackRequest.builder()
+                    .bankAccount(bankAccount)
+                    .bankCode(bankCode)
+                    .amount(amount.longValue())
+                    .content("AIMS " + externalTransactionId)
+                    .transType("C")
+                    .build();
 
-        // Parse status từ response
-        if (rawResponse.contains("\"00\"") || rawResponse.toLowerCase().contains("success")) {
-            return "SUCCESS";
-        } else if (rawResponse.contains("FAILED") || rawResponse.contains("failed")) {
-            return "FAILED";
+            String rawResponse = boundary.checkPaymentStatus(callbackRequest.buildRequestString(), token);
+            log.info("Test callback triggered successfully — response: {}", rawResponse);
+
+        } catch (InvalidTokenException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("VietQR Sandbox API returned an error, but the webhook might still be processing. Error: {}", e.getMessage());
+            // Do not throw exception because VietQR Sandbox often returns 400 Bad Request
+            // even when it successfully dispatches the webhook.
         }
-
-        return "PENDING";
     }
 }

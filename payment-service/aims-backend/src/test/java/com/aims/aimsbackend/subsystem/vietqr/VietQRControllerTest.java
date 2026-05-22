@@ -1,6 +1,6 @@
 package com.aims.aimsbackend.subsystem.vietqr;
 
-import com.aims.aimsbackend.entity.order.Invoice;
+import com.aims.aimsbackend.dto.InvoiceResponse;
 import com.aims.aimsbackend.entity.order.QRCode;
 import com.aims.aimsbackend.exception.order.InvalidTokenException;
 import com.aims.aimsbackend.exception.order.QRCodeGenerationException;
@@ -26,13 +26,16 @@ class VietQRControllerTest {
     @MockitoBean
     private VietQRBoundary boundary;
 
-    private Invoice invoice;
+    private InvoiceResponse invoiceResponse;
+    private static final String EXTERNAL_TRANSACTION_ID = "REF-TESTREF1";
 
     @BeforeEach
     void setUp() {
-        invoice = new Invoice();
-        invoice.setPaymentReference("REF-123");
-        invoice.setTotalAmount(100000);
+        invoiceResponse = new InvoiceResponse();
+        invoiceResponse.setTotalAmount(java.math.BigDecimal.valueOf(507000));
+        invoiceResponse.setShippingFee(java.math.BigDecimal.valueOf(12000));
+        invoiceResponse.setTotalProductPriceExclVAT(java.math.BigDecimal.valueOf(450000));
+        invoiceResponse.setTotalProductPriceInclVAT(java.math.BigDecimal.valueOf(495000));
     }
 
     // ==========================================
@@ -68,11 +71,11 @@ class VietQRControllerTest {
         String tokenResponse = "{\"access_token\":\"token123\",\"token_type\":\"bearer\",\"expires_in\":3600}";
         when(boundary.getAccessToken(anyString())).thenReturn(tokenResponse);
 
-        // Mock QR
+        // Mock QR response
         String qrResponse = "{\"code\":\"00\",\"desc\":\"Success\",\"data\":{\"qrCode\":\"000201...\",\"qrDataURL\":\"data:image/png;base64,...\"}}";
         when(boundary.generateQRCode(anyString(), anyString())).thenReturn(qrResponse);
 
-        QRCode qrCode = vietQRController.generateQRCode(invoice);
+        QRCode qrCode = vietQRController.generateQRCode(invoiceResponse, EXTERNAL_TRANSACTION_ID);
 
         assertThat(qrCode).isNotNull();
         assertThat(qrCode.getQrCode()).isEqualTo("000201...");
@@ -88,52 +91,7 @@ class VietQRControllerTest {
         String qrResponse = "{\"code\":\"00\",\"desc\":\"Success\",\"data\":{\"qrCode\":\"\",\"qrDataURL\":\"\"}}";
         when(boundary.generateQRCode(anyString(), anyString())).thenReturn(qrResponse);
 
-        assertThrows(QRCodeGenerationException.class, () -> vietQRController.generateQRCode(invoice));
-    }
-
-    // ==========================================
-    // Tests for checkPaymentStatus
-    // ==========================================
-
-    @Test
-    void shouldReturnSuccessWhenResponseIs00() {
-        // Mock token
-        String tokenResponse = "{\"access_token\":\"token123\",\"token_type\":\"bearer\",\"expires_in\":3600}";
-        when(boundary.getAccessToken(anyString())).thenReturn(tokenResponse);
-
-        // Mock check
-        when(boundary.checkPaymentStatus(anyString(), anyString())).thenReturn("{\"code\":\"00\"}");
-
-        String status = vietQRController.checkPaymentStatus(invoice);
-
-        assertThat(status).isEqualTo("SUCCESS");
-    }
-
-    @Test
-    void shouldReturnFailedWhenResponseIsFailed() {
-        // Mock token
-        String tokenResponse = "{\"access_token\":\"token123\",\"token_type\":\"bearer\",\"expires_in\":3600}";
-        when(boundary.getAccessToken(anyString())).thenReturn(tokenResponse);
-
-        // Mock check
-        when(boundary.checkPaymentStatus(anyString(), anyString())).thenReturn("FAILED transaction");
-
-        String status = vietQRController.checkPaymentStatus(invoice);
-
-        assertThat(status).isEqualTo("FAILED");
-    }
-
-    @Test
-    void shouldReturnPendingWhenResponseIsUnknown() {
-        // Mock token
-        String tokenResponse = "{\"access_token\":\"token123\",\"token_type\":\"bearer\",\"expires_in\":3600}";
-        when(boundary.getAccessToken(anyString())).thenReturn(tokenResponse);
-
-        // Mock check
-        when(boundary.checkPaymentStatus(anyString(), anyString())).thenReturn("{\"code\":\"99\"}"); // Not 00 or failed
-
-        String status = vietQRController.checkPaymentStatus(invoice);
-
-        assertThat(status).isEqualTo("PENDING");
+        assertThrows(QRCodeGenerationException.class,
+                () -> vietQRController.generateQRCode(invoiceResponse, EXTERNAL_TRANSACTION_ID));
     }
 }

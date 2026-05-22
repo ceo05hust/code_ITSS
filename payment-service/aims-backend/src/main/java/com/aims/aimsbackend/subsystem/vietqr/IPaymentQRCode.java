@@ -1,20 +1,26 @@
 package com.aims.aimsbackend.subsystem.vietqr;
 
-import com.aims.aimsbackend.entity.order.Invoice;
+import com.aims.aimsbackend.dto.InvoiceResponse;
 import com.aims.aimsbackend.entity.order.QRCode;
+
+import java.math.BigDecimal;
 
 public interface IPaymentQRCode {
 
     /**
-     * Tạo mã QR thanh toán từ thông tin invoice.
+     * Tạo mã QR thanh toán từ thông tin đơn hàng và mã tham chiếu giao dịch.
+     *
+     * @param response              Thông tin đơn hàng phản hồi từ hệ thống (số tiền, phí ship, v.v.)
+     * @param externalTransactionId Mã tham chiếu giao dịch duy nhất (ví dụ: REF-A1B2C3D4)
+     * @return QRCode               Đối tượng chứa URL ảnh QR và dữ liệu QR
      */
-    QRCode generateQRCode(Invoice invoice);
+    QRCode generateQRCode(InvoiceResponse response, String externalTransactionId);
 
     /**
-     * Kiểm tra trạng thái thanh toán qua invoice.
+     * Kích hoạt giả lập thanh toán thành công (dành cho môi trường test).
      *
-     * @param invoice Hóa đơn cần kiểm tra thanh toán giả lập
-     * @return "SUCCESS" | "FAILED" | "PENDING"
+     * @param externalTransactionId Mã tham chiếu giao dịch đã dùng để tạo QR
+     * @param amount                Số tiền giao dịch cần giả lập
      */
-    String checkPaymentStatus(Invoice invoice);
+    void triggerTestCallback(String externalTransactionId, BigDecimal amount);
 }

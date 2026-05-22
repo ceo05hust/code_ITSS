@@ -1,56 +1,36 @@
 package com.aims.aimsbackend.entity.order;
 
-import jakarta.persistence.*;
-import lombok.*;
 import com.aims.aimsbackend.entity.enums.PaymentMethod;
+import jakarta.persistence.*;
+import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transaction_info")
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class TransactionInfo {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer transactionId;
+    private Long transactionId;
 
-    @OneToOne
-    @JoinColumn(name = "invoice_id")
-    private Invoice invoice;
+    @Column(nullable = false, length = 255, unique = true)
+    private String externalTransactionId;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 100)
     private PaymentMethod paymentMethod;
 
-    @Column(length = 500)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String transactionContent;
 
-    private LocalDateTime transactionDateTime;
+    @Column(nullable = false)
+    private LocalDateTime transactionDatetime;
 
-    private double amount;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal amount;
 
-    /** "SUCCESS" | "FAILED" | "PENDING" */
-    private String status;
-
-    public static TransactionInfo createTransactionInfo(
-            String paymentReference,
-            String transactionContent,
-            Invoice invoice,
-            double amount,
-            PaymentMethod paymentMethod
-    ) {
-        String fullContent = "Payment Ref: " + paymentReference + " | " + transactionContent;
-        return TransactionInfo.builder()
-                .invoice(invoice)
-                .paymentMethod(paymentMethod)
-                .transactionContent(fullContent)
-                .transactionDateTime(LocalDateTime.now())
-                .amount(amount)
-                .status("SUCCESS")
-                .build();
-    }
-
+    @OneToOne(mappedBy = "transactionInfo")
+    private Invoice invoice;
 }
