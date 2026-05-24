@@ -13,9 +13,6 @@ public class AppConfig implements WebMvcConfigurer {
         return new RestTemplate();
     }
 
-    /**
-     * CORS: cho phép Angular (localhost:4200) gọi API.
-     */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")

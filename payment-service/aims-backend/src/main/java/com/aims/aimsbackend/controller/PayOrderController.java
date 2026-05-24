@@ -18,19 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * PayOrderController — REST API endpoints cho use-case PayOrder by VietQR.
- *
- * Endpoints:
- *   POST /api/payment/generate-qr       — Nhận thông tin đơn hàng, trả về QR code + externalTransactionId
- *   POST /api/payment/simulate-payment  — Kích hoạt giả lập thanh toán thành công (chỉ dùng khi test)
- *   POST /api/payment/webhook           — Nhận callback từ VietQR sau khi thanh toán thành công
- *
- * Test bằng Postman:
- *   1. POST /api/payment/generate-qr        Body: { "shippingFee": 12000, "totalAmount": 507000, ... }
- *   2. POST /api/payment/simulate-payment   Body: { "externalTransactionId": "REF-XXXXXX", "amount": 507000 }
- *   3. Webhook sẽ tự động được gọi bởi VietQR — không cần gọi thủ công
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/payment")
@@ -78,10 +65,6 @@ public class PayOrderController {
     // POST /api/payment/simulate-payment
     // =========================================================
 
-    /**
-     * Kích hoạt giả lập thanh toán thành công.
-     * Chỉ sử dụng trong môi trường test/dev — KHÔNG dùng trên production.
-     */
     @PostMapping("/simulate-payment")
     public ResponseEntity<ApiResponse<Object>> simulatePayment(
             @Valid @RequestBody SimulatePaymentRequest request
@@ -111,10 +94,6 @@ public class PayOrderController {
     // GET /api/payment/transaction/{externalTransactionId}
     // =========================================================
 
-    /**
-     * API Polling để Frontend kiểm tra trạng thái giao dịch.
-     * Trả về SUCCESS nếu webhook đã lưu, ngược lại trả về PENDING.
-     */
     @GetMapping("/transaction/{externalTransactionId}")
     public ResponseEntity<ApiResponse<Object>> getTransactionStatus(
             @PathVariable String externalTransactionId
@@ -148,9 +127,6 @@ public class PayOrderController {
     // POST /api/payment/switch-method
     // =========================================================
 
-    /**
-     * Chuyển đổi phương thức thanh toán sang PayPal hoặc method khác.
-     */
     @PostMapping("/switch-method")
     public ResponseEntity<ApiResponse<Object>> switchMethod(
             @RequestBody Map<String, Object> body
@@ -159,8 +135,6 @@ public class PayOrderController {
         String externalTransactionId = body.getOrDefault("externalTransactionId", "").toString();
         log.info("switchMethod called — externalTransactionId={}, method={}", externalTransactionId, method);
 
-        // Chúng ta chỉ trả về 200 OK để Frontend chuyển hướng sang luồng PayPal.
-        // Có thể mở rộng để cập nhật trạng thái đơn hàng bị hủy bỏ vào Database nếu cần.
         return ResponseEntity.ok(ApiResponse.ok(
                 "Switched to " + method,
                 Map.of("method", method, "externalTransactionId", externalTransactionId)

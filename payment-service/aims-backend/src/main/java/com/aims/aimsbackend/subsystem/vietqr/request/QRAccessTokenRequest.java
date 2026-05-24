@@ -5,10 +5,6 @@ import lombok.*;
 
 import java.util.Base64;
 
-/**
- * Request để lấy Access Token từ VietQR API.
- * VietQR xác thực bằng Basic Auth: Base64(username:password)
- */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,18 +14,12 @@ public class QRAccessTokenRequest extends QRRequest {
     private String userName;
     private String password;
 
-    /**
-     * Tạo Authorization header dạng: "Basic Base64(username:password)"
-     */
     public String buildAuthorizationHeader() {
         String credentials = userName + ":" + password;
         String encoded     = Base64.getEncoder().encodeToString(credentials.getBytes());
         return "Basic " + encoded;
     }
 
-    /**
-     * VietQR token endpoint nhận body JSON với userName và password.
-     */
     @Override
     public String buildRequestString() {
         try {
@@ -40,6 +30,5 @@ public class QRAccessTokenRequest extends QRRequest {
         }
     }
 
-    /** Inner record dùng để serialize JSON body */
     private record Body(String userName, String password) {}
 }

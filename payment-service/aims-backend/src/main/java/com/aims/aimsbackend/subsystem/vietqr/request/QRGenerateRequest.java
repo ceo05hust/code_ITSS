@@ -4,10 +4,6 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.*;
 
-/**
- * Request để generate QR Code từ VietQR API.
- * Các field theo class diagram + VietQR API specification.
- */
 @Getter
 @Setter
 @NoArgsConstructor

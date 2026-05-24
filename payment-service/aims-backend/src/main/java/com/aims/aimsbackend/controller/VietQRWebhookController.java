@@ -11,10 +11,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Controller để hứng webhook từ VietQR Sandbox Portal.
- * Portal được cấu hình cứng để gọi tới endpoint /vqr/bank/api/transaction-sync.
- */
 @Slf4j
 @RestController
 @RequestMapping("/vqr/bank/api")

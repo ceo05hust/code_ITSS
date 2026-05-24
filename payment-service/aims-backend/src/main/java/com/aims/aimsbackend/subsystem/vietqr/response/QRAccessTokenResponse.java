@@ -4,10 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Response khi gọi VietQR token endpoint.
- * VietQR trả về: { "access_token": "...", "token_type": "bearer", "expires_in": 3600 }
- */
 @Data
 @NoArgsConstructor
 public class QRAccessTokenResponse {

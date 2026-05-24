@@ -24,8 +24,7 @@ public class TransactionInfoService {
                                                  String content,
                                                  BigDecimal amount,
                                                  PaymentMethod paymentMethod) {
-        
-        // Kiểm tra xem giao dịch đã tồn tại chưa (Idempotent Webhook)
+
         TransactionInfo existing = findByExternalTransactionId(externalTransactionId);
         if (existing != null) {
             return existing;

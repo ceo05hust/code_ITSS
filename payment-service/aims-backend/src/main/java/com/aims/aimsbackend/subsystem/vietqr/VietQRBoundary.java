@@ -10,10 +10,6 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-/**
- * VietQRBoundary: tầng giao tiếp thô với VietQR external API.
- * Mỗi method nhận/trả raw String (JSON), không xử lý business logic.
- */
 @Slf4j
 @Component
 public class VietQRBoundary {
@@ -33,12 +29,6 @@ public class VietQRBoundary {
         this.restTemplate = restTemplate;
     }
 
-    /**
-     * Gọi VietQR để lấy access token.
-     *
-     * @param authorizationHeader Basic Auth header (Basic Base64(user:pass))
-     * @return raw JSON response string
-     */
     String getAccessToken(String authorizationHeader) {
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -65,13 +55,6 @@ public class VietQRBoundary {
         }
     }
 
-    /**
-     * Gọi VietQR để generate QR Code.
-     *
-     * @param requestString JSON body của QRGenerateRequest
-     * @param bearerToken   Access token
-     * @return raw JSON response string
-     */
     String generateQRCode(String requestString, String bearerToken) {
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -98,14 +81,6 @@ public class VietQRBoundary {
         }
     }
 
-    /**
-     * Gọi VietQR test callback API để trigger payment simulation.
-     * VietQR sẽ gọi lại callback URL của chúng ta sau khi nhận request này.
-     *
-     * @param requestString JSON body chứa transactionRefId, amount, ...
-     * @param bearerToken   Access token
-     * @return raw JSON response string (payment status)
-     */
     String checkPaymentStatus(String requestString, String bearerToken) {
         try {
             HttpHeaders headers = new HttpHeaders();

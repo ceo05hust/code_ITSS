@@ -15,10 +15,6 @@ public class QRCode {
     private String bankName;
     private String bankAccount;
 
-    /**
-     * Parse JSON response string từ VietQR generate QR API.
-     * VietQR trả về dạng: { "data": { "qrCode": "...", "qrLink": "...", ... } }
-     */
     public void parseQRCodeResponse(String response) {
         try {
             ObjectMapper mapper = new ObjectMapper();

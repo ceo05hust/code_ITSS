@@ -4,9 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Generic API response wrapper trả về cho Angular frontend.
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
