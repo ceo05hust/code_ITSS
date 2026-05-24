@@ -1,6 +1,6 @@
 package com.aims.aimsbackend.subsystem.vietqr;
 
-import com.aims.aimsbackend.dto.InvoiceResponse;
+import com.aims.aimsbackend.dto.PaymentRequest;
 import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 import com.aims.aimsbackend.exception.order.InvalidTokenException;
 import com.aims.aimsbackend.exception.order.QRCodeGenerationException;
@@ -85,7 +85,7 @@ public class VietQRController implements IPaymentQRCode {
     // =========================================================
 
     @Override
-    public QRCode generateQRCode(InvoiceResponse response, String externalTransactionId) {
+    public QRCode generateQRCode(PaymentRequest request, String externalTransactionId) {
         String token = getValidAccessToken();
 
         QRGenerateRequest generateRequest = QRGenerateRequest.builder()
@@ -93,7 +93,7 @@ public class VietQRController implements IPaymentQRCode {
                 .bankName(bankName)
                 .bankAccount(bankAccount)
                 .userBankName(bankUserName)
-                .amount(response.getTotalAmount().doubleValue())
+                .amount(request.getAmount().doubleValue())
                 .content("AIMS " + externalTransactionId)   
                 .qrType(0)
                 .orderId(externalTransactionId)

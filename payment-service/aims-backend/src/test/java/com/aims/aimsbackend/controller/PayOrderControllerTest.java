@@ -1,6 +1,6 @@
 package com.aims.aimsbackend.controller;
 
-import com.aims.aimsbackend.dto.InvoiceResponse;
+import com.aims.aimsbackend.dto.PaymentRequest;
 import com.aims.aimsbackend.dto.SimulatePaymentRequest;
 import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 import com.aims.aimsbackend.entity.order.TransactionInfo;
@@ -51,18 +51,18 @@ public class PayOrderControllerTest {
 
     @Test
     void testGenerateQRCode_Success() throws Exception {
-        InvoiceResponse invoice = new InvoiceResponse();
-        invoice.setTotalAmount(new BigDecimal("500000"));
+        PaymentRequest request = new PaymentRequest();
+        request.setAmount(new BigDecimal("500000"));
 
         QRCode mockQr = new QRCode();
         mockQr.setQrCode("12345");
         PaymentService.GenerateQRResult mockResult = new PaymentService.GenerateQRResult(testExternalId, mockQr);
 
-        when(paymentService.generateVietQR(any(InvoiceResponse.class))).thenReturn(mockResult);
+        when(paymentService.generateVietQR(any(PaymentRequest.class))).thenReturn(mockResult);
 
         mockMvc.perform(post("/api/payment/generate-qr")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(invoice)))
+                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.externalTransactionId").value(testExternalId))
@@ -71,14 +71,15 @@ public class PayOrderControllerTest {
 
     @Test
     void testGenerateQRCode_Failure() throws Exception {
-        InvoiceResponse invoice = new InvoiceResponse();
+        PaymentRequest request = new PaymentRequest();
+        request.setAmount(new BigDecimal("500000"));
 
-        when(paymentService.generateVietQR(any(InvoiceResponse.class)))
+        when(paymentService.generateVietQR(any(PaymentRequest.class)))
                 .thenThrow(new QRCodeGenerationException("API error"));
 
         mockMvc.perform(post("/api/payment/generate-qr")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(invoice)))
+                .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("QR generation failed: API error"));

@@ -3,10 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface GenerateQrPayload {
-  shippingFee: number;
-  totalProductPriceExclVAT: number;
-  totalProductPriceInclVAT: number;
-  totalAmount: number;
+  amount: number;
 }
 
 export interface SimulatePaymentPayload {

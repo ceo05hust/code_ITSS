@@ -1,7 +1,7 @@
 package com.aims.aimsbackend.controller;
 
 import com.aims.aimsbackend.dto.ApiResponse;
-import com.aims.aimsbackend.dto.InvoiceResponse;
+import com.aims.aimsbackend.dto.PaymentRequest;
 import com.aims.aimsbackend.dto.SimulatePaymentRequest;
 import com.aims.aimsbackend.dto.WebhookRequest;
 import com.aims.aimsbackend.entity.order.TransactionInfo;
@@ -33,11 +33,11 @@ public class PayOrderController {
 
     @PostMapping("/generate-qr")
     public ResponseEntity<ApiResponse<Object>> generateQRCode(
-            @Valid @RequestBody InvoiceResponse response
+            @Valid @RequestBody PaymentRequest request
     ) {
-        log.info("generateQRCode called — totalAmount={}", response.getTotalAmount());
+        log.info("generateQRCode called — totalAmount={}", request.getAmount());
         try {
-            GenerateQRResult result = paymentService.generateVietQR(response);
+            GenerateQRResult result = paymentService.generateVietQR(request);
 
             Map<String, Object> responseData = Map.of(
                     "externalTransactionId", result.externalTransactionId(),

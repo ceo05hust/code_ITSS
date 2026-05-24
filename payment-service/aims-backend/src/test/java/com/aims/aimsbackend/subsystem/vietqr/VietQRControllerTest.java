@@ -1,6 +1,6 @@
 package com.aims.aimsbackend.subsystem.vietqr;
 
-import com.aims.aimsbackend.dto.InvoiceResponse;
+import com.aims.aimsbackend.dto.PaymentRequest;
 import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 import com.aims.aimsbackend.exception.order.InvalidTokenException;
 import com.aims.aimsbackend.exception.order.QRCodeGenerationException;
@@ -26,16 +26,13 @@ class VietQRControllerTest {
     @MockitoBean
     private VietQRBoundary boundary;
 
-    private InvoiceResponse invoiceResponse;
+    private PaymentRequest request;
     private static final String EXTERNAL_TRANSACTION_ID = "REF-TESTREF1";
 
     @BeforeEach
     void setUp() {
-        invoiceResponse = new InvoiceResponse();
-        invoiceResponse.setTotalAmount(java.math.BigDecimal.valueOf(507000));
-        invoiceResponse.setShippingFee(java.math.BigDecimal.valueOf(12000));
-        invoiceResponse.setTotalProductPriceExclVAT(java.math.BigDecimal.valueOf(450000));
-        invoiceResponse.setTotalProductPriceInclVAT(java.math.BigDecimal.valueOf(495000));
+        request = new PaymentRequest();
+        request.setAmount(java.math.BigDecimal.valueOf(507000));
     }
 
     // ==========================================
@@ -75,7 +72,7 @@ class VietQRControllerTest {
         String qrResponse = "{\"code\":\"00\",\"desc\":\"Success\",\"data\":{\"qrCode\":\"000201...\",\"qrDataURL\":\"data:image/png;base64,...\"}}";
         when(boundary.generateQRCode(anyString(), anyString())).thenReturn(qrResponse);
 
-        QRCode qrCode = vietQRController.generateQRCode(invoiceResponse, EXTERNAL_TRANSACTION_ID);
+        QRCode qrCode = vietQRController.generateQRCode(request, EXTERNAL_TRANSACTION_ID);
 
         assertThat(qrCode).isNotNull();
         assertThat(qrCode.getQrCode()).isEqualTo("000201...");
@@ -92,6 +89,6 @@ class VietQRControllerTest {
         when(boundary.generateQRCode(anyString(), anyString())).thenReturn(qrResponse);
 
         assertThrows(QRCodeGenerationException.class,
-                () -> vietQRController.generateQRCode(invoiceResponse, EXTERNAL_TRANSACTION_ID));
+                () -> vietQRController.generateQRCode(request, EXTERNAL_TRANSACTION_ID));
     }
 }

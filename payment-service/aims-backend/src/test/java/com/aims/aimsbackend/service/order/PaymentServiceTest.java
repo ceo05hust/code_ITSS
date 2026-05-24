@@ -1,6 +1,6 @@
 package com.aims.aimsbackend.service.order;
 
-import com.aims.aimsbackend.dto.InvoiceResponse;
+import com.aims.aimsbackend.dto.PaymentRequest;
 import com.aims.aimsbackend.dto.SimulatePaymentRequest;
 import com.aims.aimsbackend.dto.WebhookRequest;
 import com.aims.aimsbackend.entity.enums.PaymentMethod;
@@ -45,21 +45,22 @@ public class PaymentServiceTest {
 
     @Test
     void testGenerateVietQR() {
-        InvoiceResponse invoiceResponse = new InvoiceResponse();
+        PaymentRequest request = new PaymentRequest();
+        request.setAmount(new BigDecimal("500000"));
         QRCode mockQr = new QRCode();
         mockQr.setQrCode("000201010212...");
 
         // vietQRService.generateQRCode returns mockQr
-        when(vietQRService.generateQRCode(eq(invoiceResponse), anyString())).thenReturn(mockQr);
+        when(vietQRService.generateQRCode(eq(request), anyString())).thenReturn(mockQr);
 
-        PaymentService.GenerateQRResult result = paymentService.generateVietQR(invoiceResponse);
+        PaymentService.GenerateQRResult result = paymentService.generateVietQR(request);
 
         assertNotNull(result);
         assertNotNull(result.externalTransactionId());
         assertTrue(result.externalTransactionId().startsWith("REF-"));
         assertEquals(mockQr, result.qrCode());
 
-        verify(vietQRService, times(1)).generateQRCode(eq(invoiceResponse), anyString());
+        verify(vietQRService, times(1)).generateQRCode(eq(request), anyString());
     }
 
     @Test

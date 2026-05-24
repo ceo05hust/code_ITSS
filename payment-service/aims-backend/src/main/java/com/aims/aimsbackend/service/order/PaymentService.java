@@ -1,6 +1,6 @@
 package com.aims.aimsbackend.service.order;
 
-import com.aims.aimsbackend.dto.InvoiceResponse;
+import com.aims.aimsbackend.dto.PaymentRequest;
 import com.aims.aimsbackend.dto.SimulatePaymentRequest;
 import com.aims.aimsbackend.dto.WebhookRequest;
 import com.aims.aimsbackend.entity.enums.PaymentMethod;
@@ -29,11 +29,11 @@ public class PaymentService {
     // 1. Generate VietQR Code
     // =========================================================
 
-    public GenerateQRResult generateVietQR(InvoiceResponse invoiceResponse) {
+    public GenerateQRResult generateVietQR(PaymentRequest request) {
         String externalTransactionId = "REF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         log.info("Generating QR code — externalTransactionId={}", externalTransactionId);
 
-        QRCode qrCode = vietQRService.generateQRCode(invoiceResponse, externalTransactionId);
+        QRCode qrCode = vietQRService.generateQRCode(request, externalTransactionId);
 
         log.info("QR generated successfully — externalTransactionId={}", externalTransactionId);
         return new GenerateQRResult(externalTransactionId, qrCode);

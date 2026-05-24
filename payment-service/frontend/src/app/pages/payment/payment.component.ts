@@ -181,10 +181,7 @@ export class PaymentComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     this.paymentService.generateQr({
-      shippingFee: this.shippingFee,
-      totalProductPriceExclVAT: this.totalProductPriceExVAT,
-      totalProductPriceInclVAT: this.totalProductPriceIncVAT,
-      totalAmount: this.totalAmount,
+      amount: this.totalAmount
     }).subscribe({
       next: (res) => {
         this.isLoadingQR = false;
