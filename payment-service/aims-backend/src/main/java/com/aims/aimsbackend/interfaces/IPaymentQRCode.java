@@ -1,4 +1,4 @@
-package com.aims.aimsbackend.subsystem.vietqr;
+package com.aims.aimsbackend.interfaces;
 
 import com.aims.aimsbackend.dto.PaymentRequest;
 import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;

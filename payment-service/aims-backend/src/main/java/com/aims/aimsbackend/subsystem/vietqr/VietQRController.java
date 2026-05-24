@@ -1,6 +1,7 @@
 package com.aims.aimsbackend.subsystem.vietqr;
 
 import com.aims.aimsbackend.dto.PaymentRequest;
+import com.aims.aimsbackend.interfaces.IPaymentQRCode;
 import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 import com.aims.aimsbackend.exception.order.InvalidTokenException;
 import com.aims.aimsbackend.exception.order.QRCodeGenerationException;

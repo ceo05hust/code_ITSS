@@ -8,7 +8,7 @@ import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 import com.aims.aimsbackend.entity.order.TransactionInfo;
 import com.aims.aimsbackend.exception.order.CallbackValidationException;
 import com.aims.aimsbackend.exception.order.PaymentFailedException;
-import com.aims.aimsbackend.subsystem.vietqr.IPaymentQRCode;
+import com.aims.aimsbackend.interfaces.IPaymentQRCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

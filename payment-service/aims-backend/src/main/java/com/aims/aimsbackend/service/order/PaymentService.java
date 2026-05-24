@@ -6,7 +6,7 @@ import com.aims.aimsbackend.dto.WebhookRequest;
 import com.aims.aimsbackend.entity.enums.PaymentMethod;
 import com.aims.aimsbackend.subsystem.vietqr.response.QRCode;
 import com.aims.aimsbackend.entity.order.TransactionInfo;
-import com.aims.aimsbackend.subsystem.vietqr.IPaymentQRCode;
+import com.aims.aimsbackend.interfaces.IPaymentQRCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

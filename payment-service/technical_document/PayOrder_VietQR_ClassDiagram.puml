@@ -24,7 +24,7 @@ package "controller" #E8F4FD {
         - paymentService : PaymentService
         - transactionInfoService : TransactionInfoService
         --
-        + generateQRCode(response : InvoiceResponse) : ResponseEntity
+        + generateQRCode(request : PaymentRequest) : ResponseEntity
         + simulatePayment(request : SimulatePaymentRequest) : ResponseEntity
         + getTransactionStatus(externalTransactionId : String) : ResponseEntity
         + switchMethod(body : Map) : ResponseEntity
@@ -47,7 +47,7 @@ package "service.order" #EAF7EA {
         - transactionInfoService : TransactionInfoService
         - webhookCallbackUrl : String
         --
-        + generateVietQR(invoiceResponse : InvoiceResponse) : GenerateQRResult
+        + generateVietQR(request : PaymentRequest) : GenerateQRResult
         + simulatePayment(request : SimulatePaymentRequest) : void
         + processWebhook(webhookRequest : WebhookRequest) : TransactionInfo
     }
@@ -66,14 +66,21 @@ package "service.order" #EAF7EA {
 }
 
 ' ================================================================
+' PACKAGE: interfaces
+' ================================================================
+package "interfaces" #FFF5E6 {
+
+    interface IPaymentQRCode <<interface>> {
+        + generateQRCode(request : PaymentRequest, externalTransactionId : String) : QRCode
+        + triggerTestCallback(externalTransactionId : String, amount : BigDecimal) : void
+    }
+
+}
+
+' ================================================================
 ' PACKAGE: subsystem.vietqr
 ' ================================================================
 package "subsystem.vietqr" #FFF8E8 {
-
-    interface IPaymentQRCode <<interface>> {
-        + generateQRCode(response : InvoiceResponse, externalTransactionId : String) : QRCode
-        + triggerTestCallback(externalTransactionId : String, amount : BigDecimal) : void
-    }
 
     class VietQRController <<Service>> {
         - boundary : VietQRBoundary
@@ -87,7 +94,7 @@ package "subsystem.vietqr" #FFF8E8 {
         - tokenExpiry : Instant
         --
         + getValidAccessToken() : String
-        + generateQRCode(response : InvoiceResponse, externalTransactionId : String) : QRCode
+        + generateQRCode(request : PaymentRequest, externalTransactionId : String) : QRCode
         + triggerTestCallback(externalTransactionId : String, amount : BigDecimal) : void
     }
 
@@ -118,13 +125,8 @@ package "subsystem.vietqr" #FFF8E8 {
 ' ================================================================
 package "dto" #F5F0FF {
 
-    class InvoiceResponse <<DTO>> {
-        + totalProductPriceExclVAT : BigDecimal
-        + totalProductPriceInclVAT : BigDecimal
-        + shippingFee : BigDecimal
-        + totalAmount : BigDecimal
-        --
-        + {static} from(invoice : Invoice) : InvoiceResponse
+    class PaymentRequest <<DTO>> {
+        + amount : BigDecimal
     }
 
     class SimulatePaymentRequest <<DTO>> {
@@ -229,7 +231,7 @@ VietQRController         --> VietQRBoundary          : delegates
 VietQRController         ..> QRCode                  : creates
 
 ' --- DTO usage ---
-PayOrderController       ..> InvoiceResponse         : receives
+PayOrderController       ..> PaymentRequest          : receives
 PayOrderController       ..> SimulatePaymentRequest  : receives
 PayOrderController       ..> ApiResponse             : returns
 VietQRWebhookController  ..> WebhookRequest          : receives
