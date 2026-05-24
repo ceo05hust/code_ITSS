@@ -31,6 +31,4 @@ public class TransactionInfo {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    @OneToOne(mappedBy = "transactionInfo")
-    private Invoice invoice;
 }
